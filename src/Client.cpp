@@ -23,10 +23,10 @@
  * @brief Constructs a Client instance for the given socket fd.
  * Initializes nickname, username, buffer, and authentication state.
  */
+
 Client::Client(int fd)
     : _fd(fd), _nickname(""), _username(""), _realname(""),
-      _authenticated(false), _buffer(""), _hasValidPass(false) {}
-
+      _authenticated(false), _hasValidPass(false), _buffer("") {}
 /**
  * @brief Destructor. No special cleanup required here.
  * Channel removal and server-side cleanup is handled by Server.

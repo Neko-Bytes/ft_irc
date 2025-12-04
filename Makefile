@@ -1,47 +1,39 @@
-# **************************************************************************** #
-#                                   SETTINGS                                   #
-# **************************************************************************** #
+# CONFIG
+NAME      := ircserver
+CXX       := c++
+CXXFLAGS  := -Wall -Wextra -Werror -std=c++17 -Iincludes
 
-NAME        = ircserv
+SRC_DIR   := src
+OBJ_DIR   := obj
 
-CXX         = c++
-CXXFLAGS    = -Wall -Wextra -Werror -std=c++17 -g
+# Source files
+SRCS := main.cpp Server.cpp Channel.cpp CommandHandler.cpp Parser.cpp Client.cpp
 
-INC_DIR     = includes
-SRC_DIR     = src
-
-SRC_FILES   = Server.cpp \
-              Client.cpp \
-              Channel.cpp \
-              Parser.cpp \
-              CommandHandler.cpp \
-              main.cpp
-
-SRCS        = $(addprefix $(SRC_DIR)/, $(SRC_FILES))
-OBJS        = $(SRCS:.cpp=.o)
-
-# **************************************************************************** #
-#                                   RULES                                      #
-# **************************************************************************** #
+SRC_PATHS := $(addprefix $(SRC_DIR)/, $(SRCS))
+OBJ_PATHS := $(addprefix $(OBJ_DIR)/, $(SRCS:.cpp=.o))
+DEP_FILES := $(OBJ_PATHS:.o=.d)
 
 all: $(NAME)
 
-$(NAME): $(OBJS)
-	$(CXX) $(CXXFLAGS) -I$(INC_DIR) $(OBJS) -o $(NAME)
-	@echo "✔ Build complete: $(NAME)"
+$(NAME): $(OBJ_PATHS)
+	@echo "Linking $(NAME)..."
+	@$(CXX) $(CXXFLAGS) $^ -o $@
 
-# Compile .cpp to .o
-$(SRC_DIR)/%.o: $(SRC_DIR)/%.cpp
-	$(CXX) $(CXXFLAGS) -I$(INC_DIR) -c $< -o $@
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
+	@mkdir -p $(dir $@)
+	@echo "Compiling $<"
+	@$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:
-	rm -f $(OBJS)
-	@echo "✔ Object files removed"
+	@echo "Removing object files..."
+	@rm -rf $(OBJ_DIR)
 
 fclean: clean
-	rm -f $(NAME)
-	@echo "✔ Executable removed"
+	@echo "Removing executable..."
+	@rm -f $(NAME)
 
 re: fclean all
+
+-include $(DEP_FILES)
 
 .PHONY: all clean fclean re

@@ -20,7 +20,7 @@
 
 class Client;
 class Channel;
-class ParsedCommand;
+struct ParsedCommand;
 class CommandHandler;
 
 /**

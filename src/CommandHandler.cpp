@@ -14,6 +14,7 @@
 #include "../includes/Channel.hpp"
 #include "../includes/Server.hpp"
 
+#include <algorithm>
 #include <sys/socket.h>
 
 /* ============================= */
@@ -93,6 +94,8 @@ void CommandHandler::handleUSER(Server *server, Client *client,
  */
 void CommandHandler::handleQUIT(Server *server, Client *client,
                                 const ParsedCommand &cmd) {
+  (void)cmd;
+
   std::string quitMsg = ":" + client->getNickname() + "!" +
                         client->getUsername() + "@localhost QUIT :Quit\r\n";
 
@@ -292,7 +295,6 @@ void CommandHandler::handlePING(Server *server, Client *client,
 
 void CommandHandler::handlePONG(Server *server, Client *client,
                                 const ParsedCommand &cmd) {
-  // For now, no special handling.
   (void)server;
   (void)client;
   (void)cmd;
