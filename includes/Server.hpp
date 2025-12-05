@@ -6,16 +6,25 @@
 /*   By: kmummadi <kmummadi@student.42heilbronn.de  +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/12/03 16:13:57 by kmummadi          #+#    #+#             */
-/*   Updated: 2025/12/04 03:25:06 by kmummadi         ###   ########.fr       */
+/*   Updated: 2025/12/04 18:44:05 by kmummadi         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #ifndef SERVER_HPP
 #define SERVER_HPP
 
+#include <arpa/inet.h>
+#include <cctype>
+#include <cstdlib>
+#include <cstring>
+#include <fcntl.h>
+#include <iostream>
 #include <map>
 #include <poll.h>
+#include <stdexcept>
 #include <string>
+#include <sys/socket.h>
+#include <unistd.h>
 #include <vector>
 
 class Client;

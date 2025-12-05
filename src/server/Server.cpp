@@ -6,7 +6,7 @@
 /*   By: kmummadi <kmummadi@student.42heilbronn.de  +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/12/03 16:47:38 by kmummadi          #+#    #+#             */
-/*   Updated: 2025/12/04 03:29:18 by kmummadi         ###   ########.fr       */
+/*   Updated: 2025/12/05 07:43:32 by kmummadi         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -16,11 +16,12 @@
  *        accepting new clients, and reading client data.
  */
 
-#include "../includes/Server.hpp"
-#include "../includes/Channel.hpp"
-#include "../includes/Client.hpp"
-#include "../includes/CommandHandler.hpp"
-#include "../includes/Parser.hpp"
+#include "../../includes/Server.hpp"
+#include "../../includes/Channel.hpp"
+#include "../../includes/Client.hpp"
+#include "../../includes/CommandHandler.hpp"
+#include "../../includes/Parser.hpp"
+#include "../../includes/Replies.hpp"
 
 #include <arpa/inet.h>
 #include <cctype>
@@ -91,9 +92,10 @@ void Server::initSocket() {
   if (_listenFd < 0)
     throw std::runtime_error("socket() failed");
 
-  int yes = 1;
+  int yes = 1; // Enable and Disable switch
   setsockopt(_listenFd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
 
+  // non-blocking I/O for poll-based event loop
   fcntl(_listenFd, F_SETFL, O_NONBLOCK);
 
   sockaddr_in addr;
@@ -105,6 +107,7 @@ void Server::initSocket() {
   if (bind(_listenFd, (struct sockaddr *)&addr, sizeof(addr)) < 0)
     throw std::runtime_error("bind() failed");
 
+  // SOMAXCONN = max number of queued pending connections (system-dependent)
   if (listen(_listenFd, SOMAXCONN) < 0)
     throw std::runtime_error("listen() failed");
 
@@ -117,6 +120,10 @@ void Server::initSocket() {
 
 /**
  * @brief Main poll loop handling all socket activity.
+ *
+ * poll() watches an array of file descriptors and sets the 'revents' field
+ * when something happens (e.g. data is ready to read). When poll() returns,
+ * we scan the vector to see which fd triggered the event.
  */
 void Server::mainLoop() {
   while (true) {
@@ -165,73 +172,14 @@ void Server::removePollFd(int fd) {
 }
 
 /* ============================= */
-/*        CLIENT HANDLING        */
-/* ============================= */
-
-/**
- * @brief Accepts a new client connection.
- */
-void Server::acceptNewClient() {
-  sockaddr_in clientAddr;
-  socklen_t len = sizeof(clientAddr);
-
-  int clientFd = accept(_listenFd, (sockaddr *)&clientAddr, &len);
-  if (clientFd < 0)
-    return;
-
-  fcntl(clientFd, F_SETFL, O_NONBLOCK);
-
-  _clients[clientFd] = new Client(clientFd);
-
-  addPollFd(clientFd);
-
-  std::cout << "Client connected: fd " << clientFd << std::endl;
-}
-
-/**
- * @brief Reads data from a client and dispatches commands.
- */
-void Server::handleClientRead(int index) {
-  int fd = _pollfds[index].fd;
-  char buffer[1024];
-
-  int bytes = recv(fd, buffer, sizeof(buffer), 0);
-  if (bytes <= 0) {
-    removeClient(fd);
-    return;
-  }
-
-  Client *c = _clients[fd];
-  c->appendToBuffer(std::string(buffer, bytes));
-
-  std::vector<std::string> msgs = extractMessages(c);
-  for (size_t i = 0; i < msgs.size(); i++) {
-    handleCommand(c, msgs[i]);
-  }
-}
-
-/**
- * @brief Removes a client from the server.
- */
-void Server::removeClient(int fd) {
-  removePollFd(fd);
-
-  if (_clients.count(fd)) {
-    delete _clients[fd];
-    _clients.erase(fd);
-  }
-
-  close(fd);
-
-  std::cout << "Client disconnected: fd " << fd << std::endl;
-}
-
-/* ============================= */
 /*       MESSAGE EXTRACTION      */
 /* ============================= */
 
 /**
  * @brief Extracts complete IRC messages from a client's buffer.
+ *
+ * Splits on "\r\n" and returns each line as a separate IRC command.
+ * Any partial data at the end is left in the buffer.
  */
 std::vector<std::string> Server::extractMessages(Client *client) {
   std::vector<std::string> messages;
@@ -251,14 +199,28 @@ std::vector<std::string> Server::extractMessages(Client *client) {
 
 /**
  * @brief Parses and dispatches an IRC command.
+ * Enforces registration: before PASS/NICK/USER are done, most commands
+ * return ERR_NOTREGISTERED.
  */
 void Server::handleCommand(Client *client, const std::string &msg) {
   ParsedCommand cmd = Parser::parse(msg);
 
+  // Normalize command name to uppercase
   std::string name = cmd.command;
-  for (size_t i = 0; i < name.size(); i++)
+  for (size_t i = 0; i < name.size(); i++) {
     name[i] =
         static_cast<char>(std::toupper(static_cast<unsigned char>(name[i])));
+  }
+
+  // Commands that are allowed even if the client is not fully registered
+  bool alwaysAllowed = (name == "PASS" || name == "NICK" || name == "USER" ||
+                        name == "PING" || name == "PONG" || name == "QUIT");
+
+  // Block everything else until registration is complete
+  if (!alwaysAllowed && !client->isAuthenticated()) {
+    sendReply(client->getFd(), ERR_NOTREGISTERED);
+    return;
+  }
 
   if (name == "PASS")
     CommandHandler::handlePASS(this, client, cmd);
@@ -266,6 +228,8 @@ void Server::handleCommand(Client *client, const std::string &msg) {
     CommandHandler::handleNICK(this, client, cmd);
   else if (name == "USER")
     CommandHandler::handleUSER(this, client, cmd);
+  else if (name == "JOIN")
+    CommandHandler::handleJOIN(this, client, cmd);
   else if (name == "PART")
     CommandHandler::handlePART(this, client, cmd);
   else if (name == "PRIVMSG")
@@ -305,16 +269,19 @@ bool Server::isClientFullyRegistered(Client *client) const {
   return true;
 }
 
+/**
+ * @brief Sends the initial welcome numeric to a fully registered client.
+ */
 void Server::sendWelcome(Client *client) {
-  int fd = client->getFd();
-  std::string nick = client->getNickname();
-
-  std::string msg =
-      ":ircserver 001 " + nick + " :Welcome to the IRC server\r\n";
-
-  send(fd, msg.c_str(), msg.size(), 0);
+  sendReply(client->getFd(), RPL_WELCOME(client->getNickname()));
 }
 
+/**
+ * @brief Tries to complete client registration.
+ *
+ * If PASS, NICK, USER, REALNAME are all set and the client is not yet
+ * authenticated, mark them as authenticated and send welcome.
+ */
 void Server::tryRegister(Client *client) {
   if (client->isAuthenticated())
     return;
@@ -327,63 +294,14 @@ void Server::tryRegister(Client *client) {
 }
 
 /* ============================= */
-/*        CHANNEL HELPERS        */
+/*          LOW-LEVEL I/O        */
 /* ============================= */
 
 /**
- * @brief Retrieves an existing channel or creates a new one.
+ * @brief Sends a raw IRC reply to a socket.
  *
- * Steps:
- *  - Look for channel name in the _channels map
- *  - If not found, create a new Channel object
- *  - Return the channel pointer
+ * This is a small helper around send() used by the reply macros.
  */
-Channel *Server::getOrCreateChannel(const std::string &name) {
-  if (_channels.count(name))
-    return _channels[name];
-
-  Channel *ch = new Channel(name);
-  _channels[name] = ch;
-  return ch;
-}
-
-/**
- * @brief Deletes a channel if it becomes empty.
- *
- * Steps:
- *  - Check if the channel exists
- *  - If it has zero members, delete it and remove it from the map
- */
-void Server::cleanupChannel(const std::string &name) {
-  if (!_channels.count(name))
-    return;
-
-  Channel *ch = _channels[name];
-  if (ch->getClients().empty()) {
-    delete ch;
-    _channels.erase(name);
-  }
-}
-
-/**
- * @brief Finds a client by their nickname.
- *
- * Steps:
- *  - Iterate through all connected clients
- *  - Compare nickname with the given nick
- *
- * @param nick Nickname to search for.
- * @return Client* Pointer if found, NULL otherwise.
- */
-Client *Server::getClientByNick(const std::string &nick) const {
-  for (std::map<int, Client *>::const_iterator it = _clients.begin();
-       it != _clients.end(); ++it) {
-    if (it->second->getNickname() == nick)
-      return it->second;
-  }
-  return NULL;
-}
-
 void Server::sendReply(int fd, const std::string &msg) {
   send(fd, msg.c_str(), msg.size(), 0);
 }

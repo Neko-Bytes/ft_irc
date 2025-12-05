@@ -6,7 +6,7 @@
 /*   By: kmummadi <kmummadi@student.42heilbronn.de  +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/12/04 03:07:30 by kmummadi          #+#    #+#             */
-/*   Updated: 2025/12/04 03:07:31 by kmummadi         ###   ########.fr       */
+/*   Updated: 2025/12/05 06:43:57 by kmummadi         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -44,6 +44,11 @@ const std::vector<Client *> &Channel::getClients() const { return _clients; }
 void Channel::addClient(Client *client) {
   if (std::find(_clients.begin(), _clients.end(), client) == _clients.end())
     _clients.push_back(client);
+}
+
+bool Channel::hasClient(Client *client) const {
+  const std::vector<Client *> &members = _clients;
+  return std::find(members.begin(), members.end(), client) != members.end();
 }
 
 void Channel::removeClient(Client *client) {

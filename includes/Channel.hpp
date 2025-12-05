@@ -6,7 +6,7 @@
 /*   By: kmummadi <kmummadi@student.42heilbronn.de  +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/12/04 03:07:07 by kmummadi          #+#    #+#             */
-/*   Updated: 2025/12/04 03:07:08 by kmummadi         ###   ########.fr       */
+/*   Updated: 2025/12/05 06:43:37 by kmummadi         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -40,6 +40,7 @@ public:
   /* ============================= */
 
   void addClient(Client *client);
+  bool hasClient(Client *client) const;
   void removeClient(Client *client);
 
   /* ============================= */

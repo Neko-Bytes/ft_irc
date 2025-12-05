@@ -7,7 +7,9 @@ SRC_DIR   := src
 OBJ_DIR   := obj
 
 # Source files
-SRCS := main.cpp Server.cpp Channel.cpp CommandHandler.cpp Parser.cpp Client.cpp
+SRCS := main.cpp \
+				./server/Server.cpp ./server/ChannelHelpers.cpp ./server/ClientHandling.cpp \
+				Channel.cpp CommandHandler.cpp Parser.cpp Client.cpp
 
 SRC_PATHS := $(addprefix $(SRC_DIR)/, $(SRCS))
 OBJ_PATHS := $(addprefix $(OBJ_DIR)/, $(SRCS:.cpp=.o))

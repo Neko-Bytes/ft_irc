@@ -6,7 +6,7 @@
 /*   By: kmummadi <kmummadi@student.42heilbronn.de  +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/12/04 02:36:25 by kmummadi          #+#    #+#             */
-/*   Updated: 2025/12/04 03:26:24 by kmummadi         ###   ########.fr       */
+/*   Updated: 2025/12/05 07:09:58 by kmummadi         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -15,7 +15,10 @@
 
 #include "Client.hpp"
 #include "Parser.hpp"
+
+#include <algorithm>
 #include <string>
+#include <sys/socket.h>
 
 class Server;
 
