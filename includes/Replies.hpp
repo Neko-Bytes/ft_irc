@@ -93,4 +93,12 @@
 #define RPL_INVITING(nick, chan)                                              \
   (std::string(":ircserver 341 * ") + (nick) + " " + (chan) +                 \
    " :You have been invited\r\n")
+
+/* ============================= */
+/*      MODE QUERY NUMERICS      */
+/* ============================= */
+
+#define RPL_CHANNELMODEIS(nick, chan, modes)                                  \
+  (std::string(":ircserver 324 ") + (nick) + " " + (chan) + " " + (modes) +  \
+   "\r\n")
 #endif

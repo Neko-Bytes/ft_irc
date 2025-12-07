@@ -22,6 +22,7 @@
 #include "../includes/Server.hpp"
 
 #include <sys/socket.h>
+#include <sstream>
 
 /* ============================= */
 /*       PASS COMMAND LOGIC      */
@@ -260,13 +261,13 @@ void CommandHandler::handleJOIN(Server *server, Client *client,
 // handle mode
 void CommandHandler::handleMODE(Server *server, Client *client,
                                 const ParsedCommand &cmd) {
-  if (cmd.params.size() < 2) {
+  if (cmd.params.empty()) {
     server->sendReply(client->getFd(), ERR_NEEDMOREPARAMS("MODE"));
     return;
   }
 
   std::string chanName = ensureChannelPrefix(cmd.params[0]);
-  std::string mode = cmd.params[1];
+  std::string mode = cmd.params.size() >= 2 ? cmd.params[1] : "";
 
   if (chanName.empty() || !server->_channels.count(chanName)) {
     server->sendReply(client->getFd(), ERR_NOSUCHCHANNEL(chanName));
@@ -277,6 +278,31 @@ void CommandHandler::handleMODE(Server *server, Client *client,
 
   if (!channel->hasClient(client)) {
     server->sendReply(client->getFd(), ERR_NOTONCHANNEL(chanName));
+    return;
+  }
+  if (mode.empty()) {
+    std::string modes = "+";
+    if (channel->isInviteOnly())
+      modes += "i";
+    if (channel->isTopicProtected())
+      modes += "t";
+    if (channel->hasKey())
+      modes += "k";
+    if (channel->hasLimit())
+      modes += "l";
+
+    std::string args;
+    if (channel->hasKey())
+      args += " " + channel->getKey();
+    if (channel->hasLimit()) {
+      std::stringstream ss;
+      ss << channel->getLimit();
+      args += " " + ss.str();
+    }
+
+    server->sendReply(client->getFd(),
+                      RPL_CHANNELMODEIS(client->getNickname(), chanName,
+                                        modes + args));
     return;
   }
 
@@ -337,6 +363,10 @@ void CommandHandler::handleMODE(Server *server, Client *client,
       return;
     }
     int limit = std::atoi(target.c_str());
+    if (limit <= 0) {
+      server->sendReply(client->getFd(), ERR_NEEDMOREPARAMS("MODE"));
+      return;
+    }
     channel->setLimit(limit);
     modeMsg = prefix + " MODE " + chanName + " +l " + target + "\r\n";
   } else if (mode == "-l") {
@@ -525,6 +555,17 @@ void CommandHandler::handleKICK(Server *server, Client *client,
   }
 
   Channel *channel = server->_channels[chanName];
+
+  if (!channel->isOperator(client)) {
+    server->sendReply(client->getFd(), ERR_CHANOPRIVSNEEDED(chanName));
+    return;
+  }
+
+  if (!channel->hasClient(client)) {
+    server->sendReply(client->getFd(), ERR_NOTONCHANNEL(chanName));
+    return;
+  }
+
   Client *target = server->getClientByNick(targetNick);
 
   if (!target) {
