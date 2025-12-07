@@ -30,7 +30,7 @@ Channel *Server::getOrCreateChannel(const std::string &name) {
   if (_channels.count(name))
     return _channels[name];
 
-  Channel *ch = new Channel(name);
+  Channel *ch = new Channel(name, this);
   _channels[name] = ch;
   return ch;
 }

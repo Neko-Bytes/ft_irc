@@ -40,6 +40,8 @@ public:
                          const ParsedCommand &cmd);
   static void handleQUIT(Server *server, Client *client,
                          const ParsedCommand &cmd);
+  static void handleINVITE(Server *server, Client *client,
+                           const ParsedCommand &cmd);
   static void handleJOIN(Server *server, Client *client,
                          const ParsedCommand &cmd);
   static void handlePART(Server *server, Client *client,
@@ -51,6 +53,8 @@ public:
   static void handlePONG(Server *server, Client *client,
                          const ParsedCommand &cmd);
   static void handleKICK(Server *server, Client *client,
+                         const ParsedCommand &cmd);
+  static void handleMODE(Server *server, Client *client,
                          const ParsedCommand &cmd);
 };
 
