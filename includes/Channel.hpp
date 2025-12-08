@@ -25,6 +25,8 @@ class Client;
  *  - Store channel name
  *  - Track clients inside the channel
  *  - Provide join/leave operations
+ *  - Manage channel modes (topic protection, invite-only, key, limit)
+ *  - Track channel operators and invited users
  *  - Provide message broadcasting to channel users
  */
 class Channel {
@@ -32,8 +34,28 @@ public:
   Channel(const std::string &name);
   ~Channel();
 
+  // getters
   const std::string &getName() const;
   const std::vector<Client *> &getClients() const;
+  const std::vector<Client *> &getOperators() const;
+  int getLimit() const;
+  bool isTopicProtected() const;
+  bool isInviteOnly() const;
+  const std::string &getTopic() const;
+  const std::string &getKey() const;
+  bool hasKey() const;
+  bool hasLimit() const;
+  bool isFull() const;
+
+  // setters
+  void setLimit(int limit);
+  void clearLimit();
+  void setTopicProtected(bool value);
+  void setInviteOnly(bool invite);
+  void setTopic(const std::string &topic);
+  void setKey(const std::string &key);
+  void clearKey();
+
 
   /* ============================= */
   /*       MEMBER MANAGEMENT       */
@@ -42,6 +64,13 @@ public:
   void addClient(Client *client);
   bool hasClient(Client *client) const;
   void removeClient(Client *client);
+  void inviteNickname(const std::string &nickname);
+  bool isInvited(const std::string &nickname) const;
+  void removeInvited(const std::string &nickname);
+  void addOperator(Client *client);
+  void removeOperator(Client *client);
+  bool isOperator(Client *client) const;
+
 
   /* ============================= */
   /*          BROADCASTING         */
@@ -52,6 +81,13 @@ public:
 private:
   std::string _name;
   std::vector<Client *> _clients;
+  std::vector<Client *> _operators;
+  std::vector<std::string> _invited;
+  bool _topicProtected;
+  std::string _key;
+  bool _inviteOnly;
+  int _limit;
+  std::string _topic;
 };
 
 #endif

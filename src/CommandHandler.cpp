@@ -22,6 +22,15 @@
 #include "../includes/Server.hpp"
 
 #include <sys/socket.h>
+#include <sstream>
+
+/* ============================= */
+/*       UTILITY FUNCTIONS       */
+/* ============================= */
+
+std::string ensureChannelPrefix(const std::string &name);
+std::string makePrefix(Client *client);
+std::vector<std::string> splitCommaList(const std::string &list);
 
 /* ============================= */
 /*       PASS COMMAND LOGIC      */
@@ -32,6 +41,12 @@ void CommandHandler::handlePASS(Server *server, Client *client,
   // No password argument
   if (cmd.params.empty()) {
     server->sendReply(client->getFd(), ERR_NEEDMOREPARAMS("PASS"));
+    return;
+  }
+
+  if (client->isAuthenticated()) {
+    server->sendReply(client->getFd(),
+                      ERR_ALREADYREGISTRED(client->getNickname()));
     return;
   }
 
@@ -81,6 +96,12 @@ void CommandHandler::handleUSER(Server *server, Client *client,
     return;
   }
 
+  if (client->isAuthenticated()) {
+    server->sendReply(client->getFd(),
+                      ERR_ALREADYREGISTRED(client->getNickname()));
+    return;
+  }
+
   client->setUsername(cmd.params[0]);
   client->setRealname(cmd.trailing);
 
@@ -111,8 +132,55 @@ void CommandHandler::handleQUIT(Server *server, Client *client,
     ch->removeClient(client);
     server->cleanupChannel(ch->getName());
   }
-
   server->removeClient(client->getFd());
+}
+
+/**
+ * @brief Processes the INVITE command.
+ * Steps:
+ * - Validate parameters
+ * - Check channel existence and membership
+ * - Check operator privileges
+ * - Invite target user and send notifications
+ */
+void CommandHandler::handleINVITE(Server *server, Client *client,
+                                  const ParsedCommand &cmd) {
+  if (cmd.params.size() < 2) {
+    server->sendReply(client->getFd(), ERR_NEEDMOREPARAMS("INVITE"));
+    return;
+  }
+
+  std::string targetNick = cmd.params[0];
+  std::string chanName = ensureChannelPrefix(cmd.params[1]);
+
+  if (chanName.empty() || !server->_channels.count(chanName)) {
+    server->sendReply(client->getFd(), ERR_NOSUCHCHANNEL(chanName));
+    return;
+  }
+
+  Channel *channel = server->_channels[chanName];
+
+  if (!channel->hasClient(client)) {
+    server->sendReply(client->getFd(), ERR_NOTONCHANNEL(chanName));
+    return;
+  }
+
+  Client *target = server->getClientByNick(targetNick);
+  if (!target) {
+    server->sendReply(client->getFd(), ERR_NOSUCHNICK(targetNick));
+    return;
+  }
+  if (!channel->isOperator(client)) {
+    server->sendReply(client->getFd(), ERR_CHANOPRIVSNEEDED(chanName));
+    return;
+  }
+  channel->inviteNickname(targetNick);
+
+
+  std::string inviteMsg = makePrefix(client) + " INVITE " + targetNick +
+                          " " + chanName + "\r\n";
+  server->sendReply(target->getFd(), inviteMsg);
+  server->sendReply(client->getFd(), RPL_INVITING(targetNick, chanName));
 }
 
 /* ============================= */
@@ -123,12 +191,13 @@ void CommandHandler::handleQUIT(Server *server, Client *client,
  * @brief Processes the JOIN command.
  *
  * Steps:
- *  - Ensure a channel name parameter exists
- *  - Retrieve or create the channel
- *  - Add the client to the channel (if not already in)
- *  - Broadcast JOIN to other members
- *  - Send NAMES list (353)
- *  - Send end of NAMES (366)
+ *  - Validate parameters
+ *  - Parse channel names and keys
+ * - For each channel:
+ *   - Check for key, invite-only, and limit restrictions
+ *   - Add client to channel
+ *   - Broadcast JOIN message
+ *   - Send NAMES list and topic information
  */
 void CommandHandler::handleJOIN(Server *server, Client *client,
                                 const ParsedCommand &cmd) {
@@ -137,44 +206,278 @@ void CommandHandler::handleJOIN(Server *server, Client *client,
     return;
   }
 
-  std::string chanName = cmd.params[0];
-  if (chanName[0] != '#')
-    chanName = "#" + chanName;
-
-  Channel *channel = server->getOrCreateChannel(chanName);
-
-  // If already in channel, nothing to do
-  if (channel->hasClient(client))
+  std::vector<std::string> channels = splitCommaList(cmd.params[0]);
+  std::vector<std::string> keys;
+  if (cmd.params.size() > 1)
+    keys = splitCommaList(cmd.params[1]);
+  if (channels.empty()) {
+    server->sendReply(client->getFd(), ERR_NEEDMOREPARAMS("JOIN"));
     return;
-
-  channel->addClient(client);
-  client->joinChannel(channel);
-
-  // Broadcast JOIN to channel
-  std::string joinMsg = ":" + client->getNickname() + "!" +
-                        client->getUsername() + "@localhost JOIN " + chanName +
-                        "\r\n";
-  channel->broadcast(joinMsg, NULL);
-
-  // Build NAMES list
-  const std::vector<Client *> &members = channel->getClients();
-
-  std::string names =
-      ":ircserver 353 " + client->getNickname() + " = " + chanName + " :";
-
-  for (size_t i = 0; i < members.size(); i++) {
-    names += members[i]->getNickname();
-    if (i + 1 < members.size())
-      names += " ";
   }
-  names += "\r\n";
 
-  server->sendReply(client->getFd(), names);
+  std::string prefix = makePrefix(client);
 
-  std::string endMsg = ":ircserver 366 " + client->getNickname() + " " +
-                       chanName + " :End of NAMES list\r\n";
+  for (size_t idx = 0; idx < channels.size(); ++idx) {
+    std::string chanName = ensureChannelPrefix(channels[idx]);
+    if (chanName.empty())
+      continue;
 
-  server->sendReply(client->getFd(), endMsg);
+    Channel *channel = server->getOrCreateChannel(chanName);
+    std::string providedKey = idx < keys.size() ? keys[idx] : std::string();
+    if (channel->hasKey() && providedKey != channel->getKey()) {
+      server->sendReply(client->getFd(), ERR_BADCHANNELKEY(chanName));
+      continue;
+    }
+    if (channel->isInviteOnly() && !channel->isInvited(client->getNickname()) &&
+        !channel->isOperator(client)) {
+      server->sendReply(client->getFd(), ERR_INVITEONLYCHAN(chanName));
+      continue;
+    }
+    if (channel->hasLimit() && channel->isFull() &&
+        !channel->isOperator(client)) {
+      server->sendReply(client->getFd(), ERR_CHANNELISFULL(chanName));
+      continue;
+    }
+    if (channel->hasClient(client)) {
+      continue;
+    }
+
+    channel->addClient(client);
+    client->joinChannel(channel);
+    channel->removeInvited(client->getNickname()); 
+    
+    if (channel->getClients().size() == 1) {
+      channel->addOperator(client);
+    }
+
+    std::string joinMsg = prefix + " JOIN " + chanName + "\r\n";
+    channel->broadcast(joinMsg, NULL);
+
+    const std::vector<Client *> &members = channel->getClients();
+    std::string names = ":ircserver 353 " + client->getNickname() + " = " +
+                        chanName + " :";
+    for (size_t i = 0; i < members.size(); ++i) {
+      names += members[i]->getNickname();
+      if (i + 1 < members.size())
+        names += " ";
+    }
+    names += "\r\n";
+    server->sendReply(client->getFd(), names);
+
+    std::string endMsg = ":ircserver 366 " +
+                         client->getNickname() + " " + chanName +
+                         " :End of NAMES list\r\n";
+    server->sendReply(client->getFd(), endMsg);
+
+    const std::string &topic = channel->getTopic();
+    if (!topic.empty()) {
+      server->sendReply(client->getFd(),
+                        RPL_TOPIC(client->getNickname(), chanName, topic));
+    } else {
+      server->sendReply(client->getFd(),
+                        RPL_NOTOPIC(client->getNickname(), chanName));
+    }
+  }
+}
+
+/**
+ * @brief Processes the MODE command.
+ * Steps:
+ * - Validate parameters
+ * - Check channel existence and membership
+ * - If no mode specified, return current modes
+ * - For mode changes, verify operator privileges
+ * - Apply mode changes and broadcast to channel members
+*/
+void CommandHandler::handleMODE(Server *server, Client *client,
+                                const ParsedCommand &cmd) {
+  if (cmd.params.empty()) {
+    server->sendReply(client->getFd(), ERR_NEEDMOREPARAMS("MODE"));
+    return;
+  }
+
+  std::string chanName = ensureChannelPrefix(cmd.params[0]);
+  std::string mode = cmd.params.size() >= 2 ? cmd.params[1] : "";
+
+  if (chanName.empty() || !server->_channels.count(chanName)) {
+    server->sendReply(client->getFd(), ERR_NOSUCHCHANNEL(chanName));
+    return;
+  }
+
+  Channel *channel = server->_channels[chanName];
+
+  if (!channel->hasClient(client)) {
+    server->sendReply(client->getFd(), ERR_NOTONCHANNEL(chanName));
+    return;
+  }
+  if (mode.empty()) {
+    std::string modes = "+";
+    if (channel->isInviteOnly())
+      modes += "i";
+    if (channel->isTopicProtected())
+      modes += "t";
+    if (channel->hasKey())
+      modes += "k";
+    if (channel->hasLimit())
+      modes += "l";
+
+    std::string args;
+    if (channel->hasKey())
+      args += " " + channel->getKey();
+    if (channel->hasLimit()) {
+      std::stringstream ss;
+      ss << channel->getLimit();
+      args += " " + ss.str();
+    }
+
+    server->sendReply(client->getFd(),
+                      RPL_CHANNELMODEIS(client->getNickname(), chanName,
+                                        modes + args));
+    return;
+  }
+
+  if (!channel->isOperator(client)) {
+    server->sendReply(client->getFd(), ERR_CHANOPRIVSNEEDED(chanName));
+    return;
+  }
+
+  std::string target;
+  if (cmd.params.size() >= 3)
+    target = cmd.params[2];
+  std::string prefix = makePrefix(client);
+  std::string modeMsg;
+
+  if (mode == "+o") {
+    if (target.empty()) {
+      server->sendReply(client->getFd(), ERR_NEEDMOREPARAMS("MODE"));
+      return;
+    }
+    Client *targetClient = server->getClientByNick(target);
+    if (!targetClient) {
+      server->sendReply(client->getFd(), ERR_NOSUCHNICK(target));
+      return;
+    }
+    channel->addOperator(targetClient);
+    modeMsg = prefix + " MODE " + chanName + " +o " + target + "\r\n";
+  } else if (mode == "-o") {
+    if (target.empty()) {
+      server->sendReply(client->getFd(), ERR_NEEDMOREPARAMS("MODE"));
+      return;
+    }
+    Client *targetClient = server->getClientByNick(target);
+    if (!targetClient) {
+      server->sendReply(client->getFd(), ERR_NOSUCHNICK(target));
+      return;
+    }
+    channel->removeOperator(targetClient);
+    modeMsg = prefix + " MODE " + chanName + " -o " + target + "\r\n";
+  } else if (mode == "+k") {
+    if (target.empty()) {
+      server->sendReply(client->getFd(), ERR_NEEDMOREPARAMS("MODE"));
+      return;
+    }
+    channel->setKey(target);
+    modeMsg = prefix + " MODE " + chanName + " +k " + target + "\r\n";
+  } else if (mode == "-k") {
+    channel->clearKey();
+    modeMsg = prefix + " MODE " + chanName + " -k\r\n";
+  } else if (mode == "+i") {
+    channel->setInviteOnly(true);
+    modeMsg = prefix + " MODE " + chanName + " +i\r\n";
+  } else if (mode == "-i") {
+    channel->setInviteOnly(false);
+    modeMsg = prefix + " MODE " + chanName + " -i\r\n";
+  } else if (mode == "+l") {
+    if (target.empty()) {
+      server->sendReply(client->getFd(), ERR_NEEDMOREPARAMS("MODE"));
+      return;
+    }
+    int limit = std::atoi(target.c_str());
+    if (limit <= 0) {
+      server->sendReply(client->getFd(), ERR_NEEDMOREPARAMS("MODE"));
+      return;
+    }
+    channel->setLimit(limit);
+    modeMsg = prefix + " MODE " + chanName + " +l " + target + "\r\n";
+  } else if (mode == "-l") {
+    channel->clearLimit();
+    modeMsg = prefix + " MODE " + chanName + " -l\r\n";
+  } else if (mode == "+t" ) {
+    channel->setTopicProtected(true);
+    modeMsg = prefix + " MODE " + chanName + " +t\r\n";
+  } else if (mode == "-t") {
+    channel->setTopicProtected(false);
+    modeMsg = prefix + " MODE " + chanName + " -t\r\n";
+  }
+  else {
+    server->sendReply(client->getFd(),
+                      prefix + " MODE " + chanName + " " + mode + "\r\n");
+    return;
+  }
+
+  channel->broadcast(modeMsg, NULL);
+}
+
+/**
+ * @brief Processes the TOPIC command.
+ *
+ * Steps:
+ * - Validate parameters
+ * - Check channel existence and membership
+ * - If no topic provided, return current topic
+ * - If topic protected, verify operator privileges
+ * - Set new topic and broadcast to channel members
+ */
+void CommandHandler::handleTOPIC(Server *server, Client *client,
+                                 const ParsedCommand &cmd) {
+  if (cmd.params.empty()) {
+    server->sendReply(client->getFd(), ERR_NEEDMOREPARAMS("TOPIC"));
+    return;
+  }
+
+  std::string chanName = ensureChannelPrefix(cmd.params[0]);
+  if (chanName.empty() || !server->_channels.count(chanName)) {
+    server->sendReply(client->getFd(), ERR_NOSUCHCHANNEL(chanName));
+    return;
+  }
+
+  Channel *channel = server->_channels[chanName];
+
+  if (!channel->hasClient(client)) {
+    server->sendReply(client->getFd(), ERR_NOTONCHANNEL(chanName));
+    return;
+  }
+
+  if (cmd.trailing.empty()) {
+    const std::string &topic = channel->getTopic();
+    if (topic.empty()) {
+      server->sendReply(client->getFd(),
+                        RPL_NOTOPIC(client->getNickname(), chanName));
+    } else {
+      server->sendReply(client->getFd(),
+                        RPL_TOPIC(client->getNickname(), chanName, topic));
+    }
+    return;
+  }
+
+  if (channel->isTopicProtected() && !channel->isOperator(client)) {
+    server->sendReply(client->getFd(), ERR_CHANOPRIVSNEEDED(chanName));
+    return;
+  }
+  if (cmd.trailing.length() > 300) {
+    server->sendReply(client->getFd(),
+                      ":ircserver 422 " + client->getNickname() +
+                          " " + chanName +
+                          " :Topic is too long (maximum 300 characters)\r\n");
+    return;
+  }
+  
+  channel->setTopic(cmd.trailing);
+  std::string topicLine = makePrefix(client) + " TOPIC " + chanName +
+                          " :" + cmd.trailing + "\r\n";
+  channel->broadcast(topicLine, NULL);
+  server->sendReply(client->getFd(),
+                    RPL_TOPIC(client->getNickname(), chanName, cmd.trailing));
 }
 
 /* ============================= */
@@ -325,6 +628,7 @@ void CommandHandler::handlePONG(Server *server, Client *client,
  * Steps:
  *  - Validate channel + target nickname
  *  - Verify channel exists
+ *  - Verify client is operator
  *  - Verify target is in channel
  *  - Broadcast KICK to channel
  *  - Remove user
@@ -351,6 +655,17 @@ void CommandHandler::handleKICK(Server *server, Client *client,
   }
 
   Channel *channel = server->_channels[chanName];
+
+  if (!channel->isOperator(client)) {
+    server->sendReply(client->getFd(), ERR_CHANOPRIVSNEEDED(chanName));
+    return;
+  }
+
+  if (!channel->hasClient(client)) {
+    server->sendReply(client->getFd(), ERR_NOTONCHANNEL(chanName));
+    return;
+  }
+
   Client *target = server->getClientByNick(targetNick);
 
   if (!target) {
@@ -373,4 +688,33 @@ void CommandHandler::handleKICK(Server *server, Client *client,
   target->leaveChannel(channel);
 
   server->cleanupChannel(chanName);
+}
+
+
+// Helpers
+// prefix check and creation
+
+std::string ensureChannelPrefix(const std::string &name) {
+  if (name.empty())
+    return name;
+  if (name[0] != '#')
+    return "#" + name;
+  return name;
+}
+
+std::string makePrefix(Client *client) {
+  return ":" + client->getNickname() + "!" + client->getUsername() +
+         "@localhost";
+}
+
+std::vector<std::string> splitCommaList(const std::string &list) {
+  std::vector<std::string> result;
+  std::istringstream iss(list);
+  std::string item;
+
+  while (std::getline(iss, item, ',')) {
+    result.push_back(item);
+  }
+
+  return result;
 }

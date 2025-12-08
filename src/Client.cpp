@@ -25,8 +25,7 @@
  */
 
 Client::Client(int fd)
-    : _fd(fd), _nickname(""), _username(""), _realname(""),
-      _authenticated(false), _hasValidPass(false), _buffer("") {}
+    : _fd(fd), _nickname(""), _username(""), _realname(""), _authenticated(false), _hasValidPass(false), _buffer(""), _outputBufferSize(0), _outputBuffer() {}
 /**
  * @brief Destructor. No special cleanup required here.
  * Channel removal and server-side cleanup is handled by Server.
@@ -45,6 +44,8 @@ const std::string &Client::getBuffer() const { return _buffer; }
 bool Client::isAuthenticated() const { return _authenticated; }
 std::string &Client::getBufferRef() { return _buffer; }
 bool Client::hasValidPass() const { return _hasValidPass; }
+std::deque<std::string> Client::getoutputBuffer() const { return _outputBuffer; }
+int Client::getOutputBufferSize() const { return _outputBufferSize; }
 
 /* ============================= */
 /*           SETTERS             */
@@ -70,6 +71,67 @@ void Client::appendToBuffer(const std::string &data) { _buffer += data; }
  * @brief Clears the buffer once all complete IRC commands have been processed.
  */
 void Client::clearBuffer() { _buffer.clear(); }
+
+/**
+ * @brief Queues a message to be sent to the client.
+ */
+void Client::queueMessage(const std::string &data) {
+  if (data.empty())
+    return;
+  _outputBuffer.push_back(data);
+  _outputBufferSize += data.size();
+}
+/**
+ * @brief Checks if there are pending messages to send.
+ */
+bool Client::hasPendingSend() const { return !_outputBuffer.empty(); }
+
+/**
+ * @brief Clears all queued messages in the output buffer.
+ */
+void Client::clearOutputBuffer() {
+  _outputBuffer.clear();
+  _outputBufferSize = 0;
+}
+
+/**
+ * @brief Peeks at the next message to be sent without removing it.
+ * @return The next message in the output buffer, or an empty string if none.
+ */
+std::string Client::peekOutputBuffer() const {
+  if (_outputBuffer.empty())
+    return "";
+  return _outputBuffer.front();
+}
+/**
+ * @brief Peeks at the message at a specific offset in the output buffer.
+ * @param offset The offset index to peek at.
+ */
+
+/**
+ * @brief updates the total size of the output buffer and removes bytes that have been sent.
+ * @param bytes Number of bytes to consume from the output buffer.
+ * -steps:
+ * - Iterate through the output buffer deque
+ * - Remove bytes from the front strings until the requested number is consumed
+ * - Adjust the total output buffer size accordingly
+ */
+void Client::consumeBytes(size_t bytes) {
+  size_t localBytes = bytes;
+
+  while (localBytes > 0 && !_outputBuffer.empty()) {
+    std::string &front = _outputBuffer.front();
+    if (front.size() <= localBytes) {
+      localBytes -= front.size();
+      _outputBufferSize -= front.size();
+      _outputBuffer.pop_front();
+    } else {
+      front.erase(0, localBytes);
+      _outputBufferSize -= localBytes;
+      localBytes = 0;
+    }
+  }
+}
 
 /* ============================= */
 /*       CHANNEL MANAGEMENT      */
