@@ -15,6 +15,7 @@
 
 #include <string>
 #include <vector>
+#include <deque>
 
 class Channel; // forward declaration
 
@@ -33,7 +34,8 @@ public:
   std::string &getBufferRef();
   bool isAuthenticated() const;
   bool hasValidPass() const;
-  std::string getSendQueue() const;
+  std::deque<std::string> getoutputBuffer() const;
+  int getOutputBufferSize() const;
 
   // Setters
   void setNickname(const std::string &nick);
@@ -41,15 +43,34 @@ public:
   void setRealname(const std::string &real);
   void setAuthenticated(bool status);
   void setValidPass(bool status);
-  void setSendQueue(const std::string &data);
-
+  
   // Buffer handling
   void appendToBuffer(const std::string &data);
   void clearBuffer();
+  
+  // outputBuffer handling
+  /**
+   * @brief Manages the output buffer for sending data to the client.
+   * - queueMessage(data): adds data to output buffer and updates size
+   * - hasPendingSend(): checks if there is data to send
+   * 
+   * - peekOutputBuffer(): peeks at next message without removing
+   * - consumeBytes(n): removes n bytes from front of buffer and updates size
+   * - getOutputBufferSize(): gets total size of output buffer
+   * 
+   * - clearOutputBuffer(): clears all queued messages
+   * 
+   *  how to use in server:
+   *  - while client->hasPendingSend():
+   *   - send(client->peekOutputBuffer())
+   *   - client->consumeBytes(bytes_sent)
+   */
 
-  // Send queue handling
   void queueMessage(const std::string &data);
   bool hasPendingSend() const;
+  void clearOutputBuffer();
+  void consumeBytes(size_t bytes);
+  std::string peekOutputBuffer() const;
 
   // Channel tracking (used later)
   void joinChannel(Channel *channel);
@@ -65,7 +86,8 @@ private:
   bool _hasValidPass;
 
   std::string _buffer;            // stores partial packets
-  std::string _sendQueue;         // stores outgoing messages
+  std::deque<std::string> _outputBuffer;         // stores outgoing messages
+  int _outputBufferSize; // total size of _outputBuffer
   std::vector<Channel *> _joined; // channels the client is in
 };
 
