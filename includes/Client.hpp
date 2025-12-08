@@ -33,6 +33,7 @@ public:
   std::string &getBufferRef();
   bool isAuthenticated() const;
   bool hasValidPass() const;
+  std::string getSendQueue() const;
 
   // Setters
   void setNickname(const std::string &nick);
@@ -40,10 +41,13 @@ public:
   void setRealname(const std::string &real);
   void setAuthenticated(bool status);
   void setValidPass(bool status);
+  void setSendQueue(const std::string &data);
 
   // Buffer handling
   void appendToBuffer(const std::string &data);
   void clearBuffer();
+  void queueMessage(const std::string &data);
+  bool hasPendingSend() const;
 
   // Channel tracking (used later)
   void joinChannel(Channel *channel);
@@ -59,6 +63,7 @@ private:
   bool _hasValidPass;
 
   std::string _buffer;            // stores partial packets
+  std::string _sendQueue;         // stores outgoing messages
   std::vector<Channel *> _joined; // channels the client is in
 };
 

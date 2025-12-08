@@ -25,8 +25,7 @@
  */
 
 Client::Client(int fd)
-    : _fd(fd), _nickname(""), _username(""), _realname(""),
-      _authenticated(false), _hasValidPass(false), _buffer("") {}
+    : _fd(fd), _nickname(""), _username(""), _realname(""), _authenticated(false), _hasValidPass(false), _buffer(""), _sendQueue("") {}
 /**
  * @brief Destructor. No special cleanup required here.
  * Channel removal and server-side cleanup is handled by Server.
@@ -45,6 +44,7 @@ const std::string &Client::getBuffer() const { return _buffer; }
 bool Client::isAuthenticated() const { return _authenticated; }
 std::string &Client::getBufferRef() { return _buffer; }
 bool Client::hasValidPass() const { return _hasValidPass; }
+std::string Client::getSendQueue() const { return _sendQueue; }
 
 /* ============================= */
 /*           SETTERS             */
@@ -55,6 +55,7 @@ void Client::setUsername(const std::string &user) { _username = user; }
 void Client::setRealname(const std::string &real) { _realname = real; }
 void Client::setAuthenticated(bool status) { _authenticated = status; }
 void Client::setValidPass(bool status) { _hasValidPass = status; }
+void Client::setSendQueue(const std::string &data) { _sendQueue = data; }
 
 /* ============================= */
 /*         BUFFER HANDLING       */
@@ -70,6 +71,9 @@ void Client::appendToBuffer(const std::string &data) { _buffer += data; }
  * @brief Clears the buffer once all complete IRC commands have been processed.
  */
 void Client::clearBuffer() { _buffer.clear(); }
+
+void Client::queueMessage(const std::string &data) { _sendQueue += data; }
+bool Client::hasPendingSend() const { return !_sendQueue.empty(); }
 
 /* ============================= */
 /*       CHANNEL MANAGEMENT      */
