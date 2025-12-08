@@ -46,6 +46,8 @@ public:
   // Buffer handling
   void appendToBuffer(const std::string &data);
   void clearBuffer();
+
+  // Send queue handling
   void queueMessage(const std::string &data);
   bool hasPendingSend() const;
 

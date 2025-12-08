@@ -40,25 +40,22 @@
 
 #define ERR_NOSUCHNICK(nick)                                                   \
   (std::string(":ircserver 401 * ") + (nick) + " :No such nick\r\n")
-
   
-  #define ERR_NOTONCHANNEL(chan)                                                 \
-  (std::string(":ircserver 442 * ") + (chan) +                                 \
-  " :You're not on that channel\r\n")
-  
-  
-  #define ERR_NOTREGISTERED                                                      \
+#define ERR_NOTREGISTERED                                                      \
   (std::string(":ircserver 451 * :You have not registered\r\n"))
   
   /* ============================= */
   /*    CHANNEL ERROR NUMERICS     */
   /* ============================= */
   
-  #define ERR_NOSUCHCHANNEL(chan)                                                \
-    (std::string(":ircserver 403 * ") + (chan) + " :No such channel\r\n")
+#define ERR_NOSUCHCHANNEL(chan)                                                \
+  (std::string(":ircserver 403 * ") + (chan) + " :No such channel\r\n")
+
+#define ERR_NOTONCHANNEL(chan)                                                 \
+  (std::string(":ircserver 442 * ") + (chan) + " :You're not on that channel\r\n")
   
-  #define ERR_CANNOTSENDTOCHAN(chan)                                             \
-    (std::string(":ircserver 404 * ") + (chan) + " :Cannot send to channel\r\n")
+#define ERR_CANNOTSENDTOCHAN(chan)                                             \
+  (std::string(":ircserver 404 * ") + (chan) + " :Cannot send to channel\r\n")
   
 #define ERR_CHANNELISFULL(chan)                                                \
   (std::string(":ircserver 471 * ") + (chan) + " :Cannot join channel (+l)\r\n")
@@ -68,6 +65,7 @@
 
 #define ERR_BADCHANNELKEY(chan)                                               \
   (std::string(":ircserver 475 * ") + (chan) + " :Cannot join channel (+k)\r\n")
+
 #define ERR_CHANOPRIVSNEEDED(chan)                                            \
   (std::string(":ircserver 482 * ") + (chan) + " :You're not channel operator\r\n")
 

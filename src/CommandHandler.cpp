@@ -24,6 +24,10 @@
 #include <sys/socket.h>
 #include <sstream>
 
+/* ============================= */
+/*       UTILITY FUNCTIONS       */
+/* ============================= */
+
 std::string ensureChannelPrefix(const std::string &name);
 std::string makePrefix(Client *client);
 std::vector<std::string> splitCommaList(const std::string &list);
@@ -131,7 +135,14 @@ void CommandHandler::handleQUIT(Server *server, Client *client,
   server->removeClient(client->getFd());
 }
 
-// invite command needed for invite only channels
+/**
+ * @brief Processes the INVITE command.
+ * Steps:
+ * - Validate parameters
+ * - Check channel existence and membership
+ * - Check operator privileges
+ * - Invite target user and send notifications
+ */
 void CommandHandler::handleINVITE(Server *server, Client *client,
                                   const ParsedCommand &cmd) {
   if (cmd.params.size() < 2) {
@@ -180,12 +191,13 @@ void CommandHandler::handleINVITE(Server *server, Client *client,
  * @brief Processes the JOIN command.
  *
  * Steps:
- *  - Ensure a channel name parameter exists
- *  - Retrieve or create the channel
- *  - Add the client to the channel (if not already in)
- *  - Broadcast JOIN to other members
- *  - Send NAMES list (353)
- *  - Send end of NAMES (366)
+ *  - Validate parameters
+ *  - Parse channel names and keys
+ * - For each channel:
+ *   - Check for key, invite-only, and limit restrictions
+ *   - Add client to channel
+ *   - Broadcast JOIN message
+ *   - Send NAMES list and topic information
  */
 void CommandHandler::handleJOIN(Server *server, Client *client,
                                 const ParsedCommand &cmd) {
@@ -268,7 +280,15 @@ void CommandHandler::handleJOIN(Server *server, Client *client,
   }
 }
 
-// handle mode
+/**
+ * @brief Processes the MODE command.
+ * Steps:
+ * - Validate parameters
+ * - Check channel existence and membership
+ * - If no mode specified, return current modes
+ * - For mode changes, verify operator privileges
+ * - Apply mode changes and broadcast to channel members
+*/
 void CommandHandler::handleMODE(Server *server, Client *client,
                                 const ParsedCommand &cmd) {
   if (cmd.params.empty()) {
@@ -398,7 +418,16 @@ void CommandHandler::handleMODE(Server *server, Client *client,
   channel->broadcast(modeMsg, NULL);
 }
 
-// handle topic
+/**
+ * @brief Processes the TOPIC command.
+ *
+ * Steps:
+ * - Validate parameters
+ * - Check channel existence and membership
+ * - If no topic provided, return current topic
+ * - If topic protected, verify operator privileges
+ * - Set new topic and broadcast to channel members
+ */
 void CommandHandler::handleTOPIC(Server *server, Client *client,
                                  const ParsedCommand &cmd) {
   if (cmd.params.empty()) {
@@ -599,6 +628,7 @@ void CommandHandler::handlePONG(Server *server, Client *client,
  * Steps:
  *  - Validate channel + target nickname
  *  - Verify channel exists
+ *  - Verify client is operator
  *  - Verify target is in channel
  *  - Broadcast KICK to channel
  *  - Remove user

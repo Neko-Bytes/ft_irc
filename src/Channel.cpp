@@ -37,43 +37,29 @@ Channel::~Channel() {}
 /* ============================= */
 
 const std::string &Channel::getName() const { return _name; }
-
 const std::vector<Client *> &Channel::getClients() const { return _clients; }
-
 const std::vector<Client *> &Channel::getOperators() const { return _operators; }
-
-int Channel::getLimit() const { return _limit; }
-
-bool Channel::isTopicProtected() const { return _topicProtected; }
 
 bool Channel::isInviteOnly() const { return _inviteOnly; }
 
 const std::string &Channel::getTopic() const { return _topic; }
+bool Channel::isTopicProtected() const { return _topicProtected; }
 
 const std::string &Channel::getKey() const { return _key; }
-
 bool Channel::hasKey() const { return !_key.empty(); }
 
 bool Channel::hasLimit() const { return _limit > 0; }
-
-bool Channel::isFull() const {
-  return hasLimit() && _clients.size() >= static_cast<size_t>(_limit);
-}
+int Channel::getLimit() const { return _limit; }
+bool Channel::isFull() const { return hasLimit() && _clients.size() >= static_cast<size_t>(_limit); }
 
 // setters
 
 void Channel::setLimit(int limit) { _limit = limit > 0 ? limit : 0; }
-
 void Channel::clearLimit() { _limit = 0; }
-
 void Channel::setTopicProtected(bool value) { _topicProtected = value; }
-
 void Channel::setInviteOnly(bool invite) { _inviteOnly = invite; }
-
 void Channel::setTopic(const std::string &topic) { _topic = topic; }
-
 void Channel::setKey(const std::string &key) { _key = key; }
-
 void Channel::clearKey() { _key.clear(); }
 
 /* ============================= */
@@ -89,7 +75,9 @@ bool Channel::hasClient(Client *client) const {
   const std::vector<Client *> &members = _clients;
   return std::find(members.begin(), members.end(), client) != members.end();
 }
-
+/** 
+ *  @brief Removes a client from the channel, including from operators and invited lists.
+ */
 void Channel::removeClient(Client *client) {
   std::vector<Client *>::iterator it =
       std::find(_clients.begin(), _clients.end(), client);

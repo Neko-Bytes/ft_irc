@@ -25,6 +25,8 @@ class Client;
  *  - Store channel name
  *  - Track clients inside the channel
  *  - Provide join/leave operations
+ *  - Manage channel modes (topic protection, invite-only, key, limit)
+ *  - Track channel operators and invited users
  *  - Provide message broadcasting to channel users
  */
 class Channel {

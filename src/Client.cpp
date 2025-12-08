@@ -72,7 +72,13 @@ void Client::appendToBuffer(const std::string &data) { _buffer += data; }
  */
 void Client::clearBuffer() { _buffer.clear(); }
 
+/**
+ * @brief Queues a message to be sent to the client.
+ */
 void Client::queueMessage(const std::string &data) { _sendQueue += data; }
+/**
+ * @brief Checks if there are pending messages to send.
+ */
 bool Client::hasPendingSend() const { return !_sendQueue.empty(); }
 
 /* ============================= */
