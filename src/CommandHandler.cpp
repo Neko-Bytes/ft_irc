@@ -115,23 +115,7 @@ void CommandHandler::handleQUIT(Server *server, Client *client,
   server->removeClient(client->getFd());
 }
 
-// prefix check and creation
-
-std::string ensureChannelPrefix(const std::string &name) {
-  if (name.empty())
-    return name;
-  if (name[0] != '#')
-    return "#" + name;
-  return name;
-}
-
-std::string makePrefix(Client *client) {
-  return ":" + client->getNickname() + "!" + client->getUsername() +
-         "@localhost";
-}
-
 // invite command needed for invite only channels
-
 void CommandHandler::handleINVITE(Server *server, Client *client,
                                   const ParsedCommand &cmd) {
   if (cmd.params.size() < 2) {
@@ -194,45 +178,46 @@ void CommandHandler::handleJOIN(Server *server, Client *client,
     return;
   }
 
-  std::string channelstr = cmd.params[0];
-  std::string key;
+  std::vector<std::string> channels = splitCommaList(cmd.params[0]);
+  std::vector<std::string> keys;
   if (cmd.params.size() > 1)
-    key = cmd.params[1];
-  if (channelstr.empty()) {
+    keys = splitCommaList(cmd.params[1]);
+  if (channels.empty()) {
     server->sendReply(client->getFd(), ERR_NEEDMOREPARAMS("JOIN"));
     return;
   }
 
   std::string prefix = makePrefix(client);
 
-  //rewrite for single channel join with checks
-    std::string chanName = ensureChannelPrefix(channelstr);
+  for (size_t idx = 0; idx < channels.size(); ++idx) {
+    std::string chanName = ensureChannelPrefix(channels[idx]);
     if (chanName.empty())
-      return;
+      continue;
 
     Channel *channel = server->getOrCreateChannel(chanName);
-    if (channel->hasKey() && key != channel->getKey()) {
+    std::string providedKey = idx < keys.size() ? keys[idx] : std::string();
+    if (channel->hasKey() && providedKey != channel->getKey()) {
       server->sendReply(client->getFd(), ERR_BADCHANNELKEY(chanName));
-      return;
+      continue;
     }
     if (channel->isInviteOnly() && !channel->isInvited(client->getNickname()) &&
         !channel->isOperator(client)) {
       server->sendReply(client->getFd(), ERR_INVITEONLYCHAN(chanName));
-      return;
+      continue;
     }
     if (channel->hasLimit() && channel->isFull() &&
         !channel->isOperator(client)) {
       server->sendReply(client->getFd(), ERR_CHANNELISFULL(chanName));
-      return ;
+      continue;
     }
     if (channel->hasClient(client)) {
-      return;
+      continue;
     }
 
     channel->addClient(client);
     client->joinChannel(channel);
-    channel->removeInvited(client->getNickname());
-
+    channel->removeInvited(client->getNickname()); 
+    
     if (channel->getClients().size() == 1) {
       channel->addOperator(client);
     }
@@ -255,6 +240,16 @@ void CommandHandler::handleJOIN(Server *server, Client *client,
                          client->getNickname() + " " + chanName +
                          " :End of NAMES list\r\n";
     server->sendReply(client->getFd(), endMsg);
+
+    const std::string &topic = channel->getTopic();
+    if (!topic.empty()) {
+      server->sendReply(client->getFd(),
+                        RPL_TOPIC(client->getNickname(), chanName, topic));
+    } else {
+      server->sendReply(client->getFd(),
+                        RPL_NOTOPIC(client->getNickname(), chanName));
+    }
+  }
 }
 
 // handle mode
@@ -647,4 +642,33 @@ void CommandHandler::handleKICK(Server *server, Client *client,
   target->leaveChannel(channel);
 
   server->cleanupChannel(chanName);
+}
+
+
+// Helpers
+// prefix check and creation
+
+std::string ensureChannelPrefix(const std::string &name) {
+  if (name.empty())
+    return name;
+  if (name[0] != '#')
+    return "#" + name;
+  return name;
+}
+
+std::string makePrefix(Client *client) {
+  return ":" + client->getNickname() + "!" + client->getUsername() +
+         "@localhost";
+}
+
+std::vector<std::string> splitCommaList(const std::string &list) {
+  std::vector<std::string> result;
+  std::istringstream iss(list);
+  std::string item;
+
+  while (std::getline(iss, item, ',')) {
+    result.push_back(item);
+  }
+
+  return result;
 }
