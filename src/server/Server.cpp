@@ -185,10 +185,25 @@ std::vector<std::string> Server::extractMessages(Client *client) {
   std::vector<std::string> messages;
   std::string &buffer = client->getBufferRef();
 
-  size_t pos;
-  while ((pos = buffer.find("\r\n")) != std::string::npos) {
-    messages.push_back(buffer.substr(0, pos));
-    buffer.erase(0, pos + 2);
+  while (true) {
+    // 1. Find the newline
+    size_t pos = buffer.find('\n');
+    if (pos == std::string::npos)
+      break;
+
+    // 2. Extract the message (substring before \n)
+    std::string msg = buffer.substr(0, pos);
+
+    // 3. Handle optional Carriage Return (\r)
+    // If the char before \n is \r, remove it.
+    if (!msg.empty() && msg[msg.length() - 1] == '\r') {
+      msg.erase(msg.length() - 1);
+    }
+
+    messages.push_back(msg);
+
+    // 4. Remove processed line from buffer (pos + 1 to include the \n)
+    buffer.erase(0, pos + 1);
   }
   return messages;
 }
