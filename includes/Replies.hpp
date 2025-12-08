@@ -93,6 +93,11 @@
 #define RPL_INVITING(nick, chan)                                              \
   (std::string(":ircserver 341 * ") + (nick) + " " + (chan) +                 \
    " :You have been invited\r\n")
+#define RPL_NOTOPIC(nick, chan)                                               \
+  (std::string(":ircserver 331 ") + (nick) + " " + (chan) +                   \
+   " :No topic is set\r\n")
+#define RPL_TOPIC(nick, chan, topic)                                         \
+  (std::string(":ircserver 332 ") + (nick) + " " + (chan) + " :" + (topic) + "\r\n")
 
 /* ============================= */
 /*      MODE QUERY NUMERICS      */

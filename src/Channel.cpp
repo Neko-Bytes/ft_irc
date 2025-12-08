@@ -96,6 +96,9 @@ void Channel::removeClient(Client *client) {
 
   if (it != _clients.end())
     _clients.erase(it);
+
+  removeOperator(client);
+  removeInvited(client->getNickname());
 }
 
 void Channel::inviteNickname(const std::string &nickname) {

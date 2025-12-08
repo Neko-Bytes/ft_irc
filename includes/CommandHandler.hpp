@@ -56,6 +56,8 @@ public:
                          const ParsedCommand &cmd);
   static void handleMODE(Server *server, Client *client,
                          const ParsedCommand &cmd);
+  static void handleTOPIC(Server *server, Client *client,
+                          const ParsedCommand &cmd);
 };
 
 #endif

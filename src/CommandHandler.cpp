@@ -112,7 +112,6 @@ void CommandHandler::handleQUIT(Server *server, Client *client,
     ch->removeClient(client);
     server->cleanupChannel(ch->getName());
   }
-
   server->removeClient(client->getFd());
 }
 
@@ -372,13 +371,73 @@ void CommandHandler::handleMODE(Server *server, Client *client,
   } else if (mode == "-l") {
     channel->clearLimit();
     modeMsg = prefix + " MODE " + chanName + " -l\r\n";
-  } else {
+  } else if (mode == "+t" ) {
+    channel->setTopicProtected(true);
+    modeMsg = prefix + " MODE " + chanName + " +t\r\n";
+  } else if (mode == "-t") {
+    channel->setTopicProtected(false);
+    modeMsg = prefix + " MODE " + chanName + " -t\r\n";
+  }
+  else {
     server->sendReply(client->getFd(),
                       prefix + " MODE " + chanName + " " + mode + "\r\n");
     return;
   }
 
   channel->broadcast(modeMsg, NULL);
+}
+
+// handle topic
+void CommandHandler::handleTOPIC(Server *server, Client *client,
+                                 const ParsedCommand &cmd) {
+  if (cmd.params.empty()) {
+    server->sendReply(client->getFd(), ERR_NEEDMOREPARAMS("TOPIC"));
+    return;
+  }
+
+  std::string chanName = ensureChannelPrefix(cmd.params[0]);
+  if (chanName.empty() || !server->_channels.count(chanName)) {
+    server->sendReply(client->getFd(), ERR_NOSUCHCHANNEL(chanName));
+    return;
+  }
+
+  Channel *channel = server->_channels[chanName];
+
+  if (!channel->hasClient(client)) {
+    server->sendReply(client->getFd(), ERR_NOTONCHANNEL(chanName));
+    return;
+  }
+
+  if (cmd.trailing.empty()) {
+    const std::string &topic = channel->getTopic();
+    if (topic.empty()) {
+      server->sendReply(client->getFd(),
+                        RPL_NOTOPIC(client->getNickname(), chanName));
+    } else {
+      server->sendReply(client->getFd(),
+                        RPL_TOPIC(client->getNickname(), chanName, topic));
+    }
+    return;
+  }
+
+  if (channel->isTopicProtected() && !channel->isOperator(client)) {
+    server->sendReply(client->getFd(), ERR_CHANOPRIVSNEEDED(chanName));
+    return;
+  }
+  if (cmd.trailing.length() > 300) {
+    server->sendReply(client->getFd(),
+                      ":ircserver 422 " + client->getNickname() +
+                          " " + chanName +
+                          " :Topic is too long (maximum 300 characters)\r\n");
+    return;
+  }
+  
+  channel->setTopic(cmd.trailing);
+  std::string topicLine = makePrefix(client) + " TOPIC " + chanName +
+                          " :" + cmd.trailing + "\r\n";
+  channel->broadcast(topicLine, NULL);
+  server->sendReply(client->getFd(),
+                    RPL_TOPIC(client->getNickname(), chanName, cmd.trailing));
 }
 
 /* ============================= */
