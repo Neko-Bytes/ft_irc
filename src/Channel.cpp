@@ -26,8 +26,8 @@
 /*          CONSTRUCTION         */
 /* ============================= */
 
-Channel::Channel(const std::string &name, Server *server)
-    : _name(name), _server(server), _topicProtected(false),
+Channel::Channel(const std::string &name)
+    : _name(name), _topicProtected(false),
       _key(), _inviteOnly(false), _limit(0) {}
 
 Channel::~Channel() {}

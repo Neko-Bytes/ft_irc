@@ -30,7 +30,7 @@ class Client;
  */
 class Channel {
 public:
-  Channel(const std::string &name, Server *server);
+  Channel(const std::string &name);
   ~Channel();
 
   // getters
@@ -82,7 +82,6 @@ private:
   std::vector<Client *> _clients;
   std::vector<Client *> _operators;
   std::vector<std::string> _invited;
-  Server *_server;
   bool _topicProtected;
   std::string _key;
   bool _inviteOnly;
