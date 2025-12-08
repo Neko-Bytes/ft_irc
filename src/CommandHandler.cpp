@@ -24,6 +24,10 @@
 #include <sys/socket.h>
 #include <sstream>
 
+std::string ensureChannelPrefix(const std::string &name);
+std::string makePrefix(Client *client);
+std::vector<std::string> splitCommaList(const std::string &list);
+
 /* ============================= */
 /*       PASS COMMAND LOGIC      */
 /* ============================= */
@@ -33,6 +37,12 @@ void CommandHandler::handlePASS(Server *server, Client *client,
   // No password argument
   if (cmd.params.empty()) {
     server->sendReply(client->getFd(), ERR_NEEDMOREPARAMS("PASS"));
+    return;
+  }
+
+  if (client->isAuthenticated()) {
+    server->sendReply(client->getFd(),
+                      ERR_ALREADYREGISTRED(client->getNickname()));
     return;
   }
 
@@ -79,6 +89,12 @@ void CommandHandler::handleUSER(Server *server, Client *client,
                                 const ParsedCommand &cmd) {
   if (cmd.params.size() < 3 || cmd.trailing.empty()) {
     server->sendReply(client->getFd(), ERR_NEEDMOREPARAMS("USER"));
+    return;
+  }
+
+  if (client->isAuthenticated()) {
+    server->sendReply(client->getFd(),
+                      ERR_ALREADYREGISTRED(client->getNickname()));
     return;
   }
 
