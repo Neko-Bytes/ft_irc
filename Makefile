@@ -2,6 +2,7 @@
 NAME      := ircserv
 CXX       := c++
 CXXFLAGS  := -Wall -Wextra -Werror -std=c++17 -Iincludes
+DEBUG_FLAGS := -g -O0
 
 SRC_DIR   := src
 OBJ_DIR   := obj
@@ -10,7 +11,7 @@ OBJ_DIR   := obj
 SRCS := main.cpp \
 				./server/Server.cpp ./server/ChannelHelpers.cpp ./server/ClientHandling.cpp \
 				Channel.cpp CommandHandler.cpp Parser.cpp Client.cpp CommandHandlerHelpers.cpp \
-				CommandHandlerChannel.cpp
+				CommandHandlerChannel.cpp CommandHandlerMode.cpp
 
 SRC_PATHS := $(addprefix $(SRC_DIR)/, $(SRCS))
 OBJ_PATHS := $(addprefix $(OBJ_DIR)/, $(SRCS:.cpp=.o))
@@ -34,6 +35,10 @@ clean:
 fclean: clean
 	@echo "Removing executable..."
 	@rm -f $(NAME)
+
+debug: clean
+	@echo "Building debug version..."
+	@$(CXX) $(CXXFLAGS) $(DEBUG_FLAGS) $(SRC_PATHS) -o $(NAME)_debug
 
 re: fclean all
 
