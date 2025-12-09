@@ -86,8 +86,8 @@ private:
   bool _hasValidPass;
 
   std::string _buffer;            // stores partial packets
-  std::deque<std::string> _outputBuffer;         // stores outgoing messages
   int _outputBufferSize; // total size of _outputBuffer
+  std::deque<std::string> _outputBuffer;         // stores outgoing messages
   std::vector<Channel *> _joined; // channels the client is in
 };
 
