@@ -138,7 +138,8 @@ void Server::mainLoop() {
       if (_pollfds[i].fd == _listenFd && (_pollfds[i].revents & POLLIN)) {
         acceptNewClient();
       } else if (_pollfds[i].revents & POLLIN) {
-        handleClientRead(i);
+        if (!handleClientRead(i))
+          --i;
       }
     }
   }

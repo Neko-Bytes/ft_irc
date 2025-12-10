@@ -43,14 +43,14 @@ void Server::acceptNewClient() {
 /**
  * @brief Reads data from a client and dispatches commands.
  */
-void Server::handleClientRead(int index) {
+bool Server::handleClientRead(int index) {
   int fd = _pollfds[index].fd;
   char buffer[1024];
 
   int bytes = recv(fd, buffer, sizeof(buffer), 0);
   if (bytes <= 0) {
     removeClient(fd);
-    return;
+    return (false);
   }
 
   Client *c = _clients[fd];
@@ -60,6 +60,8 @@ void Server::handleClientRead(int index) {
   for (size_t i = 0; i < msgs.size(); i++) {
     handleCommand(c, msgs[i]);
   }
+
+  return (true);
 }
 
 /**

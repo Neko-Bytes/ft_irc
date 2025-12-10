@@ -89,7 +89,7 @@ private:
    *     CLIENT CONNECTION OPS
    * ============================= */
   void acceptNewClient();
-  void handleClientRead(int index);
+  bool handleClientRead(int index);
   void removeClient(int fd);
 
   /* =============================
