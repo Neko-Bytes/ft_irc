@@ -8,6 +8,32 @@
 #include <sstream>
 #include <cstdlib>
 
+void CommandHandler::replyActiveModes(Server *server, const Channel &channel,const Client &client) {
+std::string modes = "+";
+    if (channel.isInviteOnly())
+      modes += "i";
+    if (channel.isTopicProtected())
+      modes += "t";
+    if (channel.hasKey())
+      modes += "k";
+    if (channel.hasLimit())
+      modes += "l";
+
+	std::string chanName = channel.getName();
+    std::string args;
+    if (channel.hasKey())
+      args += " " + channel.getKey();
+    if (channel.hasLimit()) {
+      std::stringstream ss;
+      ss << channel.getLimit();
+      args += " " + ss.str();
+	}
+	server->sendReply(client.getFd(),
+                      RPL_CHANNELMODEIS(client.getNickname(), chanName,
+                                        modes + args));
+    return;
+}
+
 /**
  * @brief Processes the MODE command.
  * Steps:
@@ -28,32 +54,9 @@ void CommandHandler::handleMODE(Server *server, Client *client,
   Channel *channel =
       expectChannel(server, client, chanName, "MODE", true, true);
   if (!channel)
-    return;
-  if (mode.empty()) {
-    std::string modes = "+";
-    if (channel->isInviteOnly())
-      modes += "i";
-    if (channel->isTopicProtected())
-      modes += "t";
-    if (channel->hasKey())
-      modes += "k";
-    if (channel->hasLimit())
-      modes += "l";
-
-    std::string args;
-    if (channel->hasKey())
-      args += " " + channel->getKey();
-    if (channel->hasLimit()) {
-      std::stringstream ss;
-      ss << channel->getLimit();
-      args += " " + ss.str();
-    }
-
-    server->sendReply(client->getFd(),
-                      RPL_CHANNELMODEIS(client->getNickname(), chanName,
-                                        modes + args));
-    return;
-  }
+    return; 
+  if (mode.empty())
+		return replyActiveModes(server, *channel, *client);
 
   if (!channel->isOperator(client)) {
     server->sendReply(client->getFd(), ERR_CHANOPRIVSNEEDED(chanName));

@@ -71,6 +71,7 @@ public:
                              const std::string &nick);
   static bool ensureValidLimit(Server *server, Client *client,
                                const std::string &arg, int &outLimit);
+  static void replyActiveModes(Server *server, const Channel &in, const Client &client);
 };
 
 #endif
