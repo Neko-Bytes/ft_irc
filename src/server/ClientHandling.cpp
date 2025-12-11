@@ -52,7 +52,7 @@ bool Server::handleClientRead(int index) {
   int bytes = recv(fd, buffer, sizeof(buffer), 0);
   if (bytes <= 0) {
     removeClient(fd);
-    return false;
+    return (false);
   }
 
   Client *c = _clients[fd];
@@ -62,13 +62,18 @@ bool Server::handleClientRead(int index) {
   for (size_t i = 0; i < msgs.size(); i++) {
     handleCommand(c, msgs[i]);
   }
-  return true;
+
+  return (true);
 }
 
 /**
  * @brief Removes a client from the server.
  */
 void Server::removeClient(int fd) {
+  // Remove from all channels first
+  disconnectClientFromChannels(fd);
+
+  // Remove from poll
   removePollFd(fd);
 
   if (_clients.count(fd)) {
@@ -79,33 +84,51 @@ void Server::removeClient(int fd) {
     delete _clients[fd];
     _clients.erase(fd);
   }
-
   close(fd);
 
   std::cout << "Client disconnected: fd " << fd << std::endl;
 }
 
+/**
+ * @brief Removes clients from all channels that they are in
+ * and remove any empty channels.
+ * Why?
+ * Because the first person to join the channel becomes the
+ * operator. When he exits, channel doesn't have an operator.
+ * So even if another person joins in, he will not be the operator.
+ * Also it is a wise method to save memory.
+ */
 void Server::disconnectClientFromChannels(int fd) {
-  std::map<int, Client *>::iterator it = _clients.find(fd);
-  if (it == _clients.end())
+  if (!_clients.count(fd))
     return;
 
-  Client *client = it->second;
-  std::vector<std::string> emptyChannels;
+  Client *client = _clients[fd];
 
-  // Full scan to ensure stale references are removed even if _joined is out of sync
-  for (std::map<std::string, Channel *>::iterator chIt = _channels.begin();
-       chIt != _channels.end(); ++chIt) {
-    Channel *channel = chIt->second;
+  // Iterate thru channels
+  std::map<std::string, Channel *>::iterator it = _channels.begin();
+  while (it != _channels.end()) {
+    Channel *channel = it->second;
+
     if (channel->hasClient(client)) {
+      // Client found in the channel
+      // Remove the client from the channel
       channel->removeClient(client);
-      client->leaveChannel(channel);
-      if (channel->getClients().empty())
-        emptyChannels.push_back(chIt->first);
-    }
-  }
 
-  for (size_t i = 0; i < emptyChannels.size(); ++i) {
-    cleanupChannel(emptyChannels[i]);
+      // If channel is empty, delete it
+      if (channel->getClients().empty()) {
+        delete channel;
+        // get the next valid iterator first and then erase prev
+        std::map<std::string, Channel *>::iterator to_erase = it;
+        ++it;
+        _channels.erase(to_erase);
+      } else {
+        // Just move to next channel
+        ++it;
+      }
+    } else {
+      // Client wasn't found in the channel
+      // move to next one
+      ++it;
+    }
   }
 }

@@ -34,6 +34,33 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+/* ================================ */
+/*          SIGNAL HANDLING         */
+/* ================================ */
+
+/* @brief
+ * A static variable belongs to the class itself and not specifically
+ * to an object. So it is essentially a global variable but under Server
+ * namespace (which is why _signal is used as static bool here).
+ * This can be accessed by any function using Server::_signal.
+ */
+
+bool Server::_signal = false;
+
+/* @brief
+ * This signal handler will be called by OS whenever a signal input is detected.
+ * Why static again?
+ * In C++, a normal (non-static) member function like void Server::myHandler(int
+ * sig) actually has two arguments. The compiler secretly rewrites it to: void
+ * Server::myHandler(Server* this, int sig). Since this would not be accepted by
+ * signal(), we use static to state that this method is independent of object.
+ */
+void Server::signalHandler(int signum) {
+  (void)signum; // Silence unused warning
+  std::cout << "\nSignal received! Shutting down..." << std::endl;
+  Server::_signal = true; // Flip the switch
+}
+
 /* ============================= */
 /*          CONSTRUCTION         */
 /* ============================= */
@@ -45,11 +72,31 @@ Server::Server(const std::string &port, const std::string &password)
     : _port(port), _password(password), _listenFd(-1) {}
 
 /**
- * @brief Destructor closes the listening socket if it's still open.
+ * @brief Destructor cleans all client and channel maps and closes the server
+ * socket.
  */
 Server::~Server() {
-  if (_listenFd != -1)
+  // 1. Close all client sockets and free memory
+  for (std::map<int, Client *>::iterator it = _clients.begin();
+       it != _clients.end(); ++it) {
+    close(it->first);  // Close the socket
+    delete it->second; // Free the Client object
+  }
+  _clients.clear();
+
+  // 2. Free all Channel objects
+  for (std::map<std::string, Channel *>::iterator it = _channels.begin();
+       it != _channels.end(); ++it) {
+    delete it->second;
+  }
+  _channels.clear();
+
+  // 3. Close the listener socket
+  if (_listenFd != -1) {
     close(_listenFd);
+  }
+
+  std::cout << "Server shutdown: All resources freed." << std::endl;
 }
 
 /**
@@ -127,28 +174,32 @@ void Server::initSocket() {
  * we scan the vector to see which fd triggered the event.
  */
 void Server::mainLoop() {
-  while (true) {
-        // Refresh POLL events based on pending output
+  while (_signal == false) {
+    // === PHASE 1: PREPARE POLLFDS ===
+    // Update events flags based on buffer status
     for (size_t i = 0; i < _pollfds.size(); i++) {
-      if (_pollfds[i].fd == _listenFd) {
-        _pollfds[i].events = POLLIN;
-        continue;
+      if (_pollfds[i].fd == _listenFd)
+        continue; // Listener is read-only
+
+      if (_clients.count(_pollfds[i].fd)) {
+        Client *c = _clients[_pollfds[i].fd];
+        if (c->hasPendingSend())
+          _pollfds[i].events = POLLIN | POLLOUT; // Needs to write
+        else
+          _pollfds[i].events = POLLIN; // Only reading
       }
-
-      std::map<int, Client *>::iterator it = _clients.find(_pollfds[i].fd);
-      if (it != _clients.end() && it->second->hasPendingSend())
-        _pollfds[i].events = POLLIN | POLLOUT;
-      else
-        _pollfds[i].events = POLLIN;
     }
-    if (_pollfds.empty())
-      throw std::runtime_error("No fds to poll");
 
-    int ret = poll(&_pollfds[0], _pollfds.size(), -1);
-    if (ret < 0)
+    // === PHASE 2: WAIT ===
+    if (poll(_pollfds.data(), _pollfds.size(), -1) < 0) {
+      if (_signal)
+        break;
       throw std::runtime_error("poll() failed");
+    }
 
+    // === PHASE 3: PROCESS ===
     for (size_t i = 0; i < _pollfds.size(); i++) {
+      // 1. Listener
       if (_pollfds[i].fd == _listenFd && (_pollfds[i].revents & POLLIN)) {
         acceptNewClient();
       }
@@ -168,31 +219,10 @@ void Server::mainLoop() {
 
           // WRITE (Outgoing)
           if (_pollfds[i].revents & POLLOUT) {
-            while (client->hasPendingSend()) {
-              const char *data = NULL;
-              size_t len = 0;
-              if (!client->peekOutputSlice(data, len) || len == 0) {
-                client->clearOutputBuffer();
-                break;
-              }
-
-              ssize_t sent = send(fd, data, len, MSG_NOSIGNAL);
-              if (sent > 0) {
-                client->consumeBytes(static_cast<size_t>(sent));
-                if (static_cast<size_t>(sent) < len)
-                  break; // partial write, wait for next POLLOUT
-              } else if (sent == 0) {
-                removeClient(fd);
-                --i;
-                break;
-              } else {
-                if (errno == EAGAIN || errno == EWOULDBLOCK)
-                  break;
-                removeClient(fd);
-                --i;
-                break;
-              }
-            }
+            std::string msg = client->peekOutputBuffer();
+            ssize_t sent = send(fd, msg.c_str(), msg.size(), 0);
+            if (sent > 0)
+              client->consumeBytes(sent);
           }
         }
       }

@@ -11,6 +11,7 @@
 /* ************************************************************************** */
 
 #include "../includes/Server.hpp"
+#include <csignal>
 #include <cstdlib>
 #include <iostream>
 
@@ -33,6 +34,16 @@ int main(int argc, char **argv) {
   std::string password = argv[2];
 
   try {
+    // 1. Handle Shutdown Signals
+    signal(SIGINT, Server::signalHandler);  // Ctrl+C
+    signal(SIGQUIT, Server::signalHandler); // Ctrl+\ (Quit)
+    signal(SIGTERM, Server::signalHandler); // Kill command
+
+    // 2. Handle SIGPIPE (The "Crash on Disconnect" Edge Case)
+    // If we write to a closed socket, we want 'send' to fail,
+    // NOT the server to crash.
+    signal(SIGPIPE, SIG_IGN);
+
     Server server(port, password);
     server.run();
   } catch (const std::exception &e) {
