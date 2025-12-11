@@ -47,8 +47,27 @@ Server::Server(const std::string &port, const std::string &password)
  * @brief Destructor closes the listening socket if it's still open.
  */
 Server::~Server() {
-  if (_listenFd != -1)
+  // 1. Close all client sockets and free memory
+  for (std::map<int, Client *>::iterator it = _clients.begin();
+       it != _clients.end(); ++it) {
+    close(it->first);  // Close the socket
+    delete it->second; // Free the Client object
+  }
+  _clients.clear();
+
+  // 2. Free all Channel objects
+  for (std::map<std::string, Channel *>::iterator it = _channels.begin();
+       it != _channels.end(); ++it) {
+    delete it->second;
+  }
+  _channels.clear();
+
+  // 3. Close the listener socket
+  if (_listenFd != -1) {
     close(_listenFd);
+  }
+
+  std::cout << "Server shutdown: All resources freed." << std::endl;
 }
 
 /**
