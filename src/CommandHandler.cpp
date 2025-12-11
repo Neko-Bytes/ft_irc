@@ -215,3 +215,44 @@ void CommandHandler::handlePONG(Server *server, Client *client,
   (void)client;
   (void)cmd;
 }
+
+/* ============================= */
+/*         WHOIS LOGIC           */
+/* ============================= */
+
+void CommandHandler::handleWHOIS(Server *server, Client *client,
+                                const ParsedCommand &cmd) {
+  if (!requireParams(server, client, cmd, 1, "WHOIS"))
+    return;
+
+  std::string targetNick = cmd.params[0];
+  Client *target = resolveClientOrReply(server, client, targetNick);
+  if (!target)
+    return;
+
+  server->sendReply(client->getFd(), RPL_WHOISUSER(
+    target->getNickname(),
+    target->getUsername(),
+    "localhost",
+    target->getRealname()
+  ));
+
+  std::string chanList;
+  const std::vector<Channel *> &joinedChannels = target->getJoinedChannels();
+  for (size_t i = 0; i < joinedChannels.size(); ++i) {
+    if (i > 0)
+      chanList += " ";
+    chanList += joinedChannels[i]->getName();
+  }
+
+  // Reply with WHOISCHANNELS
+  server->sendReply(client->getFd(), RPL_WHOISCHANNELS(
+    target->getNickname(),
+    chanList
+  ));
+
+  // End of WHOIS
+  server->sendReply(client->getFd(), RPL_ENDOFWHOIS(
+    target->getNickname()
+  ));
+}

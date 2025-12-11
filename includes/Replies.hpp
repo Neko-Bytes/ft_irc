@@ -97,10 +97,18 @@
   (std::string(":ircserver 332 ") + (nick) + " " + (chan) + " :" + (topic) + "\r\n")
 
 /* ============================= */
-/*      MODE QUERY NUMERICS      */
+/*      QUERY NUMERICS      */
 /* ============================= */
 
 #define RPL_CHANNELMODEIS(nick, chan, modes)                                  \
   (std::string(":ircserver 324 ") + (nick) + " " + (chan) + " " + (modes) +  \
    "\r\n")
+
+#define RPL_WHOISUSER(nick, user, host, real)                                   \
+  (std::string(":ircserver 311 ") + (nick) + " " + (user) + " " + (host) +    \
+   " * :" + (real) + "\r\n")
+#define RPL_WHOISCHANNELS(nick, chanList)                                     \
+  (std::string(":ircserver 319 ") + (nick) + " :" + (chanList) + "\r\n")
+#define RPL_ENDOFWHOIS(nick)                                               \
+  (std::string(":ircserver 318 ") + (nick) + " :End of WHOIS list\r\n")
 #endif

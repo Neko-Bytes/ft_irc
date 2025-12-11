@@ -347,6 +347,8 @@ void Server::handleCommand(Client *client, const std::string &msg) {
     CommandHandler::handleTOPIC(this, client, cmd);
   else if (name == "INVITE")
     CommandHandler::handleINVITE(this, client, cmd);
+  else if (name == "WHOIS")
+    CommandHandler::handleWHOIS(this, client, cmd);
   else if (name == "QUIT")
     CommandHandler::handleQUIT(this, client, cmd);
 }
