@@ -128,7 +128,7 @@ void Server::initSocket() {
  */
 void Server::mainLoop() {
   while (true) {
-    // Refresh POLL events based on pending output
+        // Refresh POLL events based on pending output
     for (size_t i = 0; i < _pollfds.size(); i++) {
       if (_pollfds[i].fd == _listenFd) {
         _pollfds[i].events = POLLIN;
@@ -141,7 +141,6 @@ void Server::mainLoop() {
       else
         _pollfds[i].events = POLLIN;
     }
-
     if (_pollfds.empty())
       throw std::runtime_error("No fds to poll");
 
@@ -170,11 +169,17 @@ void Server::mainLoop() {
           // WRITE (Outgoing)
           if (_pollfds[i].revents & POLLOUT) {
             while (client->hasPendingSend()) {
-              std::string msg = client->peekOutputBuffer();
-              ssize_t sent = send(fd, msg.c_str(), msg.size(), MSG_NOSIGNAL);
+              const char *data = NULL;
+              size_t len = 0;
+              if (!client->peekOutputSlice(data, len) || len == 0) {
+                client->clearOutputBuffer();
+                break;
+              }
+
+              ssize_t sent = send(fd, data, len, MSG_NOSIGNAL);
               if (sent > 0) {
                 client->consumeBytes(static_cast<size_t>(sent));
-                if (static_cast<size_t>(sent) < msg.size())
+                if (static_cast<size_t>(sent) < len)
                   break; // partial write, wait for next POLLOUT
               } else if (sent == 0) {
                 removeClient(fd);

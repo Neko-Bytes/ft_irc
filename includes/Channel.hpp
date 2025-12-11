@@ -70,6 +70,7 @@ public:
   void addOperator(Client *client);
   void removeOperator(Client *client);
   bool isOperator(Client *client) const;
+  void clearInvites();
 
 
   /* ============================= */

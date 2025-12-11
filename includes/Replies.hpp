@@ -88,9 +88,8 @@
 /*      CHANNEL NUMERICS         */
 /* ============================= */
 
-#define RPL_INVITING(nick, chan)                                              \
-  (std::string(":ircserver 341 * ") + (nick) + " " + (chan) +                 \
-   " :You have been invited\r\n")
+#define RPL_INVITING(target, chan)                                            \
+  (std::string(":ircserver 341 ") + (target) + " " + (chan) + "\r\n")
 #define RPL_NOTOPIC(nick, chan)                                               \
   (std::string(":ircserver 331 ") + (nick) + " " + (chan) +                   \
    " :No topic is set\r\n")

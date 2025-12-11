@@ -47,7 +47,11 @@ void Server::cleanupChannel(std::string name) {
     return;
 
   Channel *ch = _channels[name];
+  if (!ch)
+    return;
+
   if (ch->getClients().empty()) {
+    ch->clearInvites();
     delete ch;
     _channels.erase(name);
   }
@@ -70,4 +74,13 @@ Client *Server::getClientByNick(const std::string &nick) const {
       return it->second;
   }
   return NULL;
+}
+
+void Server::removeInvitesForNick(const std::string &nick) {
+  for (std::map<std::string, Channel *>::iterator it = _channels.begin();
+       it != _channels.end(); ++it) {
+    Channel *channel = it->second;
+    if (channel)
+      channel->removeInvited(nick);
+  }
 }
