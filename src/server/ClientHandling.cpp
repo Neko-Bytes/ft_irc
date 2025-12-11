@@ -68,14 +68,61 @@ bool Server::handleClientRead(int index) {
  * @brief Removes a client from the server.
  */
 void Server::removeClient(int fd) {
+  // Remove from all channels first
+  disconnectClientFromChannels(fd);
+
+  // Remove from poll
   removePollFd(fd);
 
   if (_clients.count(fd)) {
     delete _clients[fd];
     _clients.erase(fd);
   }
-
   close(fd);
 
   std::cout << "Client disconnected: fd " << fd << std::endl;
+}
+
+/**
+ * @brief Removes clients from all channels that they are in
+ * and remove any empty channels.
+ * Why?
+ * Because the first person to join the channel becomes the
+ * operator. When he exits, channel doesn't have an operator.
+ * So even if another person joins in, he will not be the operator.
+ * Also it is a wise method to save memory.
+ */
+void Server::disconnectClientFromChannels(int fd) {
+  if (!_clients.count(fd))
+    return;
+
+  Client *client = _clients[fd];
+
+  // Iterate thru channels
+  std::map<std::string, Channel *>::iterator it = _channels.begin();
+  while (it != _channels.end()) {
+    Channel *channel = it->second;
+
+    if (channel->hasClient(client)) {
+      // Client found in the channel
+      // Remove the client from the channel
+      channel->removeClient(client);
+
+      // If channel is empty, delete it
+      if (channel->getClients().empty()) {
+        delete channel;
+        // get the next valid iterator first and then erase prev
+        std::map<std::string, Channel *>::iterator to_erase = it;
+        ++it;
+        _channels.erase(to_erase);
+      } else {
+        // Just move to next channel
+        ++it;
+      }
+    } else {
+      // Client wasn't found in the channel
+      // move to next one
+      ++it;
+    }
+  }
 }

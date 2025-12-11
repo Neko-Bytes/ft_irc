@@ -58,6 +58,8 @@ public:
    */
   const std::string &getPassword() const;
 
+  static void signalHandler(int signum);
+
 private:
   friend class CommandHandler; // allow CommandHandler to access private
                                // internals
@@ -68,6 +70,7 @@ private:
   std::string _port;
   std::string _password;
   int _listenFd;
+  static bool _signal; // Signal checker
 
   std::vector<pollfd> _pollfds;
   std::map<int, Client *> _clients;
@@ -114,6 +117,7 @@ private:
   void cleanupChannel(const std::string &name);
   Client *getClientByNick(const std::string &nick) const;
   void sendReply(int fd, const std::string &msg);
+  void disconnectClientFromChannels(int fd);
 };
 
 #endif
