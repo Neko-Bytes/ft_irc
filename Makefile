@@ -2,6 +2,7 @@
 NAME      := ircserv
 CXX       := c++
 CXXFLAGS  := -Wall -Wextra -Werror -std=c++17 -Iincludes
+DEBUG_FLAGS := -g -O0
 
 SRC_DIR   := src
 OBJ_DIR   := obj
@@ -34,6 +35,10 @@ clean:
 fclean: clean
 	@echo "Removing executable..."
 	@rm -f $(NAME)
+
+debug: clean
+	@echo "Building debug version..."
+	@$(CXX) $(CXXFLAGS) $(DEBUG_FLAGS) $(SRC_PATHS) -o $(NAME)_debug
 
 re: fclean all
 

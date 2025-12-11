@@ -340,6 +340,12 @@ void Server::handleCommand(Client *client, const std::string &msg) {
     CommandHandler::handlePONG(this, client, cmd);
   else if (name == "KICK")
     CommandHandler::handleKICK(this, client, cmd);
+  else if (name == "MODE")
+    CommandHandler::handleMODE(this, client, cmd);
+  else if (name == "TOPIC")
+    CommandHandler::handleTOPIC(this, client, cmd);
+  else if (name == "INVITE")
+    CommandHandler::handleINVITE(this, client, cmd);
   else if (name == "QUIT")
     CommandHandler::handleQUIT(this, client, cmd);
 }
