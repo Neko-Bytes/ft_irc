@@ -114,9 +114,11 @@ private:
   /* ============================= */
 
   Channel *getOrCreateChannel(const std::string &name);
-  void cleanupChannel(const std::string &name);
+  void cleanupChannel(std::string name);
   Client *getClientByNick(const std::string &nick) const;
+  void removeInvitesForNick(const std::string &nick);
   void sendReply(int fd, const std::string &msg);
+  void queueMessage(Client *client, const std::string &msg);
   void disconnectClientFromChannels(int fd);
 };
 

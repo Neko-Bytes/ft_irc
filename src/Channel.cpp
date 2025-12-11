@@ -105,6 +105,8 @@ void Channel::removeInvited(const std::string &nickname) {
     _invited.erase(it);
 }
 
+void Channel::clearInvites() { _invited.clear(); }
+
 void Channel::addOperator(Client *client) {
   if (std::find(_operators.begin(), _operators.end(), client) ==
       _operators.end()) {
@@ -134,7 +136,6 @@ void Channel::broadcast(const std::string &msg, Client *exclude) {
     if (_clients[i] == exclude)
       continue;
 
-    int fd = _clients[i]->getFd();
-    send(fd, msg.c_str(), msg.size(), 0);
+    _clients[i]->queueMessage(msg);
   }
 }

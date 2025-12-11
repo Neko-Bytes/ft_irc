@@ -20,6 +20,8 @@
 #include "../../includes/Parser.hpp"
 #include "../../includes/Server.hpp"
 
+#include <vector>
+
 /**
  * @brief Accepts a new client connection.
  */
@@ -75,6 +77,10 @@ void Server::removeClient(int fd) {
   removePollFd(fd);
 
   if (_clients.count(fd)) {
+    std::string nick = _clients[fd]->getNickname();
+    disconnectClientFromChannels(fd);
+    if (!nick.empty())
+      removeInvitesForNick(nick);
     delete _clients[fd];
     _clients.erase(fd);
   }

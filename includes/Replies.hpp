@@ -88,9 +88,8 @@
 /*      CHANNEL NUMERICS         */
 /* ============================= */
 
-#define RPL_INVITING(nick, chan)                                              \
-  (std::string(":ircserver 341 * ") + (nick) + " " + (chan) +                 \
-   " :You have been invited\r\n")
+#define RPL_INVITING(target, chan)                                            \
+  (std::string(":ircserver 341 ") + (target) + " " + (chan) + "\r\n")
 #define RPL_NOTOPIC(nick, chan)                                               \
   (std::string(":ircserver 331 ") + (nick) + " " + (chan) +                   \
    " :No topic is set\r\n")
@@ -98,10 +97,18 @@
   (std::string(":ircserver 332 ") + (nick) + " " + (chan) + " :" + (topic) + "\r\n")
 
 /* ============================= */
-/*      MODE QUERY NUMERICS      */
+/*      QUERY NUMERICS      */
 /* ============================= */
 
 #define RPL_CHANNELMODEIS(nick, chan, modes)                                  \
   (std::string(":ircserver 324 ") + (nick) + " " + (chan) + " " + (modes) +  \
    "\r\n")
+
+#define RPL_WHOISUSER(nick, user, host, real)                                   \
+  (std::string(":ircserver 311 ") + (nick) + " " + (user) + " " + (host) +    \
+   " * :" + (real) + "\r\n")
+#define RPL_WHOISCHANNELS(nick, chanList)                                     \
+  (std::string(":ircserver 319 ") + (nick) + " :" + (chanList) + "\r\n")
+#define RPL_ENDOFWHOIS(nick)                                               \
+  (std::string(":ircserver 318 ") + (nick) + " :End of WHOIS list\r\n")
 #endif

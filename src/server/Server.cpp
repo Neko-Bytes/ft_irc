@@ -25,6 +25,7 @@
 
 #include <arpa/inet.h>
 #include <cctype>
+#include <cerrno>
 #include <cstdlib>
 #include <cstring>
 #include <fcntl.h>
@@ -346,6 +347,8 @@ void Server::handleCommand(Client *client, const std::string &msg) {
     CommandHandler::handleTOPIC(this, client, cmd);
   else if (name == "INVITE")
     CommandHandler::handleINVITE(this, client, cmd);
+  else if (name == "WHOIS")
+    CommandHandler::handleWHOIS(this, client, cmd);
   else if (name == "QUIT")
     CommandHandler::handleQUIT(this, client, cmd);
 }
@@ -409,7 +412,20 @@ void Server::tryRegister(Client *client) {
  * This is a small helper around send() used by the reply macros.
  */
 void Server::sendReply(int fd, const std::string &msg) {
-  // send(fd, msg.c_str(), msg.size(), 0);
-  if (_clients.count(fd))
-    _clients[fd]->queueMessage(msg);
+  std::map<int, Client *>::iterator it = _clients.find(fd);
+  if (it != _clients.end()) {
+    queueMessage(it->second, msg);
+    return;
+  }
+  // Fallback for early replies before a Client object is tracked
+  send(fd, msg.c_str(), msg.size(), MSG_NOSIGNAL);
+}
+
+/**
+ * @brief Queues a message for deferred sending via poll-driven writes.
+ */
+void Server::queueMessage(Client *client, const std::string &msg) {
+  if (!client || msg.empty())
+    return;
+  client->queueMessage(msg);
 }
