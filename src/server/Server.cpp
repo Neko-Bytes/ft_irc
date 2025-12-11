@@ -33,6 +33,33 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+/* ================================ */
+/*          SIGNAL HANDLING         */
+/* ================================ */
+
+/* @brief
+ * A static variable belongs to the class itself and not specifically
+ * to an object. So it is essentially a global variable but under Server
+ * namespace (which is why _signal is used as static bool here).
+ * This can be accessed by any function using Server::_signal.
+ */
+
+bool Server::_signal = false;
+
+/* @brief
+ * This signal handler will be called by OS whenever a signal input is detected.
+ * Why static again?
+ * In C++, a normal (non-static) member function like void Server::myHandler(int
+ * sig) actually has two arguments. The compiler secretly rewrites it to: void
+ * Server::myHandler(Server* this, int sig). Since this would not be accepted by
+ * signal(), we use static to state that this method is independent of object.
+ */
+void Server::signalHandler(int signum) {
+  (void)signum; // Silence unused warning
+  std::cout << "\nSignal received! Shutting down..." << std::endl;
+  Server::_signal = true; // Flip the switch
+}
+
 /* ============================= */
 /*          CONSTRUCTION         */
 /* ============================= */
@@ -44,7 +71,8 @@ Server::Server(const std::string &port, const std::string &password)
     : _port(port), _password(password), _listenFd(-1) {}
 
 /**
- * @brief Destructor closes the listening socket if it's still open.
+ * @brief Destructor cleans all client and channel maps and closes the server
+ * socket.
  */
 Server::~Server() {
   // 1. Close all client sockets and free memory
@@ -145,7 +173,7 @@ void Server::initSocket() {
  * we scan the vector to see which fd triggered the event.
  */
 void Server::mainLoop() {
-  while (true) {
+  while (_signal == false) {
     // === PHASE 1: PREPARE POLLFDS ===
     // Update events flags based on buffer status
     for (size_t i = 0; i < _pollfds.size(); i++) {
