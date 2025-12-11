@@ -190,8 +190,11 @@ void Server::mainLoop() {
     }
 
     // === PHASE 2: WAIT ===
-    if (poll(_pollfds.data(), _pollfds.size(), -1) < 0)
+    if (poll(_pollfds.data(), _pollfds.size(), -1) < 0) {
+      if (_signal)
+        break;
       throw std::runtime_error("poll() failed");
+    }
 
     // === PHASE 3: PROCESS ===
     for (size_t i = 0; i < _pollfds.size(); i++) {
