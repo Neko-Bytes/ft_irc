@@ -25,6 +25,7 @@
 
 #include <arpa/inet.h>
 #include <cctype>
+#include <cerrno>
 #include <cstdlib>
 #include <cstring>
 #include <fcntl.h>
@@ -127,6 +128,20 @@ void Server::initSocket() {
  */
 void Server::mainLoop() {
   while (true) {
+    // Refresh POLL events based on pending output
+    for (size_t i = 0; i < _pollfds.size(); i++) {
+      if (_pollfds[i].fd == _listenFd) {
+        _pollfds[i].events = POLLIN;
+        continue;
+      }
+
+      std::map<int, Client *>::iterator it = _clients.find(_pollfds[i].fd);
+      if (it != _clients.end() && it->second->hasPendingSend())
+        _pollfds[i].events = POLLIN | POLLOUT;
+      else
+        _pollfds[i].events = POLLIN;
+    }
+
     if (_pollfds.empty())
       throw std::runtime_error("No fds to poll");
 
@@ -137,8 +152,44 @@ void Server::mainLoop() {
     for (size_t i = 0; i < _pollfds.size(); i++) {
       if (_pollfds[i].fd == _listenFd && (_pollfds[i].revents & POLLIN)) {
         acceptNewClient();
-      } else if (_pollfds[i].revents & POLLIN) {
-        handleClientRead(i);
+      }
+      // 2. Client Operations
+      else {
+        int fd = _pollfds[i].fd;
+        if (_clients.count(_pollfds[i].fd)) {
+          Client *client = _clients[fd];
+
+          // READ (Incoming)
+          if (_pollfds[i].revents & POLLIN) {
+            if (!handleClientRead(i)) {
+              --i;      // Client removed, stay at this index
+              continue; // Don't try to write to a dead client
+            }
+          }
+
+          // WRITE (Outgoing)
+          if (_pollfds[i].revents & POLLOUT) {
+            while (client->hasPendingSend()) {
+              std::string msg = client->peekOutputBuffer();
+              ssize_t sent = send(fd, msg.c_str(), msg.size(), MSG_NOSIGNAL);
+              if (sent > 0) {
+                client->consumeBytes(static_cast<size_t>(sent));
+                if (static_cast<size_t>(sent) < msg.size())
+                  break; // partial write, wait for next POLLOUT
+              } else if (sent == 0) {
+                removeClient(fd);
+                --i;
+                break;
+              } else {
+                if (errno == EAGAIN || errno == EWOULDBLOCK)
+                  break;
+                removeClient(fd);
+                --i;
+                break;
+              }
+            }
+          }
+        }
       }
     }
   }
@@ -324,5 +375,20 @@ void Server::tryRegister(Client *client) {
  * This is a small helper around send() used by the reply macros.
  */
 void Server::sendReply(int fd, const std::string &msg) {
-  send(fd, msg.c_str(), msg.size(), 0);
+  std::map<int, Client *>::iterator it = _clients.find(fd);
+  if (it != _clients.end()) {
+    queueMessage(it->second, msg);
+    return;
+  }
+  // Fallback for early replies before a Client object is tracked
+  send(fd, msg.c_str(), msg.size(), MSG_NOSIGNAL);
+}
+
+/**
+ * @brief Queues a message for deferred sending via poll-driven writes.
+ */
+void Server::queueMessage(Client *client, const std::string &msg) {
+  if (!client || msg.empty())
+    return;
+  client->queueMessage(msg);
 }

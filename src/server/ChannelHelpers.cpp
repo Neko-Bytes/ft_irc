@@ -42,7 +42,7 @@ Channel *Server::getOrCreateChannel(const std::string &name) {
  *  - Check if the channel exists
  *  - If it has zero members, delete it and remove it from the map
  */
-void Server::cleanupChannel(const std::string &name) {
+void Server::cleanupChannel(std::string name) {
   if (!_channels.count(name))
     return;
 

@@ -20,6 +20,8 @@
 #include "../../includes/Parser.hpp"
 #include "../../includes/Server.hpp"
 
+#include <vector>
+
 /**
  * @brief Accepts a new client connection.
  */
@@ -43,14 +45,14 @@ void Server::acceptNewClient() {
 /**
  * @brief Reads data from a client and dispatches commands.
  */
-void Server::handleClientRead(int index) {
+bool Server::handleClientRead(int index) {
   int fd = _pollfds[index].fd;
   char buffer[1024];
 
   int bytes = recv(fd, buffer, sizeof(buffer), 0);
   if (bytes <= 0) {
     removeClient(fd);
-    return;
+    return false;
   }
 
   Client *c = _clients[fd];
@@ -60,6 +62,7 @@ void Server::handleClientRead(int index) {
   for (size_t i = 0; i < msgs.size(); i++) {
     handleCommand(c, msgs[i]);
   }
+  return true;
 }
 
 /**
@@ -69,6 +72,7 @@ void Server::removeClient(int fd) {
   removePollFd(fd);
 
   if (_clients.count(fd)) {
+    disconnectClientFromChannels(fd);
     delete _clients[fd];
     _clients.erase(fd);
   }
@@ -76,4 +80,29 @@ void Server::removeClient(int fd) {
   close(fd);
 
   std::cout << "Client disconnected: fd " << fd << std::endl;
+}
+
+void Server::disconnectClientFromChannels(int fd) {
+  std::map<int, Client *>::iterator it = _clients.find(fd);
+  if (it == _clients.end())
+    return;
+
+  Client *client = it->second;
+  std::vector<std::string> emptyChannels;
+
+  // Full scan to ensure stale references are removed even if _joined is out of sync
+  for (std::map<std::string, Channel *>::iterator chIt = _channels.begin();
+       chIt != _channels.end(); ++chIt) {
+    Channel *channel = chIt->second;
+    if (channel->hasClient(client)) {
+      channel->removeClient(client);
+      client->leaveChannel(channel);
+      if (channel->getClients().empty())
+        emptyChannels.push_back(chIt->first);
+    }
+  }
+
+  for (size_t i = 0; i < emptyChannels.size(); ++i) {
+    cleanupChannel(emptyChannels[i]);
+  }
 }
