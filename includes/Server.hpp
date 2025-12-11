@@ -114,6 +114,7 @@ private:
   void cleanupChannel(const std::string &name);
   Client *getClientByNick(const std::string &nick) const;
   void sendReply(int fd, const std::string &msg);
+  void disconnectClientFromChannels(int fd);
 };
 
 #endif

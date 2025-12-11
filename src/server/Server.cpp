@@ -127,19 +127,53 @@ void Server::initSocket() {
  */
 void Server::mainLoop() {
   while (true) {
-    if (_pollfds.empty())
-      throw std::runtime_error("No fds to poll");
+    // === PHASE 1: PREPARE POLLFDS ===
+    // Update events flags based on buffer status
+    for (size_t i = 0; i < _pollfds.size(); i++) {
+      if (_pollfds[i].fd == _listenFd)
+        continue; // Listener is read-only
 
-    int ret = poll(&_pollfds[0], _pollfds.size(), -1);
-    if (ret < 0)
+      if (_clients.count(_pollfds[i].fd)) {
+        Client *c = _clients[_pollfds[i].fd];
+        if (c->hasPendingSend())
+          _pollfds[i].events = POLLIN | POLLOUT; // Needs to write
+        else
+          _pollfds[i].events = POLLIN; // Only reading
+      }
+    }
+
+    // === PHASE 2: WAIT ===
+    if (poll(_pollfds.data(), _pollfds.size(), -1) < 0)
       throw std::runtime_error("poll() failed");
 
+    // === PHASE 3: PROCESS ===
     for (size_t i = 0; i < _pollfds.size(); i++) {
+      // 1. Listener
       if (_pollfds[i].fd == _listenFd && (_pollfds[i].revents & POLLIN)) {
         acceptNewClient();
-      } else if (_pollfds[i].revents & POLLIN) {
-        if (!handleClientRead(i))
-          --i;
+      }
+      // 2. Client Operations
+      else {
+        int fd = _pollfds[i].fd;
+        if (_clients.count(_pollfds[i].fd)) {
+          Client *client = _clients[fd];
+
+          // READ (Incoming)
+          if (_pollfds[i].revents & POLLIN) {
+            if (!handleClientRead(i)) {
+              --i;      // Client removed, stay at this index
+              continue; // Don't try to write to a dead client
+            }
+          }
+
+          // WRITE (Outgoing)
+          if (_pollfds[i].revents & POLLOUT) {
+            std::string msg = client->peekOutputBuffer();
+            ssize_t sent = send(fd, msg.c_str(), msg.size(), 0);
+            if (sent > 0)
+              client->consumeBytes(sent);
+          }
+        }
       }
     }
   }
@@ -319,5 +353,7 @@ void Server::tryRegister(Client *client) {
  * This is a small helper around send() used by the reply macros.
  */
 void Server::sendReply(int fd, const std::string &msg) {
-  send(fd, msg.c_str(), msg.size(), 0);
+  // send(fd, msg.c_str(), msg.size(), 0);
+  if (_clients.count(fd))
+    _clients[fd]->queueMessage(msg);
 }
