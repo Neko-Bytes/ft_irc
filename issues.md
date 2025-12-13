@@ -1,4 +1,8 @@
-# Error 1:
+# Log date: 13.12.2025
+
+## Error:
+
+### Status = Fixed!
 
 :nick!nick@localhost JOIN #test
 :ircserver 353 nick = #test :nick
@@ -19,8 +23,11 @@ MODE #test +o bob
 :nick!nick@localhost MODE #test +o bob
 
 > How is mode being executed even when bob didnt exist in the channel??
+> Because it is not being checked in handleMODE +o case block. [Teja] added that
 
-# Error 2:
+# Error:
+
+### Status = Not fixed
 
 ### Terminal 1: 
 
