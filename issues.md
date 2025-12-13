@@ -25,7 +25,7 @@ MODE #test +o bob
 > How is mode being executed even when bob didnt exist in the channel??
 > Because it is not being checked in handleMODE +o case block. [Teja] added that
 
-# Error:
+## Error:
 
 ### Status = Not fixed
 
@@ -60,7 +60,7 @@ privmsg bob : hi
 
 > You are allowed to have same usernames but not same nicknames?
 
-# Logs:
+## Logs:
 
 ```
  ╰─λ val ./ircserv 6667 pass            
