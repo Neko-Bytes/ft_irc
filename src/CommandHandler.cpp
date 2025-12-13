@@ -155,16 +155,16 @@ void CommandHandler::handlePRIVMSG(Server *server, Client *client,
 
   // Allows msgs without colon. Ex: "PRIVMSG user hello world"
   // i = 1 to skip "user"
-  if (text.empty() && cmd.params.size() > 1) {
-    for (size_t i = 1; i < cmd.params.size(); ++i) {
-      if (i > 1)
-        text += " ";
-      text += cmd.params[i];
-    }
-  }
+  // if (text.empty() && cmd.params.size() > 1) {
+  //   for (size_t i = 1; i < cmd.params.size(); ++i) {
+  //     if (i > 1)
+  //       text += " ";
+  //     text += cmd.params[i];
+  //   }
+  // }
 
   // No text to send
-  if (cmd.trailing.empty()) {
+  if (text.empty()) {
     server->sendReply(client->getFd(), ":ircserver 412 :No text to send\r\n");
     return;
   }
