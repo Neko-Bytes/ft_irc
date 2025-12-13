@@ -70,6 +70,11 @@ bool Server::handleClientRead(int index) {
   std::vector<std::string> msgs = extractMessages(c);
   for (size_t i = 0; i < msgs.size(); i++) {
     handleCommand(c, msgs[i]);
+
+    // Say client uses QUIT and he doesn't exist
+    if (_clients.find(fd) == _clients.end()) {
+      return (false);
+    }
   }
 
   return (true);
