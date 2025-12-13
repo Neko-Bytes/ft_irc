@@ -4,6 +4,7 @@
 
 ### Status = Fixed!
 
+```
 :nick!nick@localhost JOIN #test
 :ircserver 353 nick = #test :nick
 :ircserver 366 nick #test :End of NAMES list
@@ -21,6 +22,8 @@ MODE #test +o bob
 :bob!bob@localhost JOIN #test
 MODE #test +o bob
 :nick!nick@localhost MODE #test +o bob
+
+```
 
 > How is mode being executed even when bob didnt exist in the channel??
 > Because it is not being checked in handleMODE +o case block. [Teja] added that
