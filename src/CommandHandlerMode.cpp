@@ -1,37 +1,37 @@
-# include "../includes/CommandHandler.hpp"
+#include "../includes/CommandHandler.hpp"
 
 #include "../includes/Channel.hpp"
+#include "../includes/CommandHandlerHelpers.hpp"
 #include "../includes/Replies.hpp"
 #include "../includes/Server.hpp"
-#include "../includes/CommandHandlerHelpers.hpp"
-#include <sys/socket.h>
-#include <sstream>
 #include <cstdlib>
+#include <sstream>
+#include <sys/socket.h>
 
-void CommandHandler::replyActiveModes(Server *server, const Channel &channel,const Client &client) {
-std::string modes = "+";
-    if (channel.isInviteOnly())
-      modes += "i";
-    if (channel.isTopicProtected())
-      modes += "t";
-    if (channel.hasKey())
-      modes += "k";
-    if (channel.hasLimit())
-      modes += "l";
+void CommandHandler::replyActiveModes(Server *server, const Channel &channel,
+                                      const Client &client) {
+  std::string modes = "+";
+  if (channel.isInviteOnly())
+    modes += "i";
+  if (channel.isTopicProtected())
+    modes += "t";
+  if (channel.hasKey())
+    modes += "k";
+  if (channel.hasLimit())
+    modes += "l";
 
-	std::string chanName = channel.getName();
-    std::string args;
-    if (channel.hasKey())
-      args += " " + channel.getKey();
-    if (channel.hasLimit()) {
-      std::stringstream ss;
-      ss << channel.getLimit();
-      args += " " + ss.str();
-	}
-	server->sendReply(client.getFd(),
-                      RPL_CHANNELMODEIS(client.getNickname(), chanName,
-                                        modes + args));
-    return;
+  std::string chanName = channel.getName();
+  std::string args;
+  if (channel.hasKey())
+    args += " " + channel.getKey();
+  if (channel.hasLimit()) {
+    std::stringstream ss;
+    ss << channel.getLimit();
+    args += " " + ss.str();
+  }
+  server->sendReply(client.getFd(), RPL_CHANNELMODEIS(client.getNickname(),
+                                                      chanName, modes + args));
+  return;
 }
 
 /**
@@ -42,7 +42,7 @@ std::string modes = "+";
  * - If no mode specified, return current modes
  * - For mode changes, verify operator privileges
  * - Apply mode changes and broadcast to channel members
-*/
+ */
 void CommandHandler::handleMODE(Server *server, Client *client,
                                 const ParsedCommand &cmd) {
   if (!requireParams(server, client, cmd, 1, "MODE"))
@@ -54,9 +54,9 @@ void CommandHandler::handleMODE(Server *server, Client *client,
   Channel *channel =
       expectChannel(server, client, chanName, "MODE", true, true);
   if (!channel)
-    return; 
+    return;
   if (mode.empty())
-		return replyActiveModes(server, *channel, *client);
+    return replyActiveModes(server, *channel, *client);
 
   if (!channel->isOperator(client)) {
     server->sendReply(client->getFd(), ERR_CHANOPRIVSNEEDED(chanName));
@@ -79,6 +79,13 @@ void CommandHandler::handleMODE(Server *server, Client *client,
     Client *targetClient = resolveClientOrReply(server, client, target);
     if (!targetClient)
       return;
+
+    // Check if the target client exists in the channel
+    if (!channel->hasClient(targetClient)) {
+      server->sendReply(client->getFd(),
+                        ERR_USERNOTINCHANNEL(target, chanName));
+      return;
+    }
     if (addFlag)
       channel->addOperator(targetClient);
     else
@@ -172,15 +179,15 @@ void CommandHandler::handleTOPIC(Server *server, Client *client,
   }
   if (cmd.trailing.length() > 300) {
     server->sendReply(client->getFd(),
-                      ":ircserver 422 " + client->getNickname() +
-                          " " + chanName +
+                      ":ircserver 422 " + client->getNickname() + " " +
+                          chanName +
                           " :Topic is too long (maximum 300 characters)\r\n");
     return;
   }
-  
+
   channel->setTopic(cmd.trailing);
-  std::string topicLine = makePrefix(client) + " TOPIC " + chanName +
-                          " :" + cmd.trailing + "\r\n";
+  std::string topicLine =
+      makePrefix(client) + " TOPIC " + chanName + " :" + cmd.trailing + "\r\n";
   channel->broadcast(topicLine, NULL);
   server->sendReply(client->getFd(),
                     RPL_TOPIC(client->getNickname(), chanName, cmd.trailing));

@@ -17,13 +17,13 @@
  */
 
 #include "../includes/CommandHandler.hpp"
-#include "../includes/CommandHandlerHelpers.hpp"
 #include "../includes/Channel.hpp"
+#include "../includes/CommandHandlerHelpers.hpp"
 #include "../includes/Replies.hpp"
 #include "../includes/Server.hpp"
 
-#include <sys/socket.h>
 #include <sstream>
+#include <sys/socket.h>
 
 /* ============================= */
 /*       PASS COMMAND LOGIC      */
@@ -150,14 +150,24 @@ void CommandHandler::handlePRIVMSG(Server *server, Client *client,
     return;
   }
 
+  std::string target = cmd.params[0];
+  std::string text = cmd.trailing;
+
+  // Allows msgs without colon. Ex: "PRIVMSG user hello world"
+  // i = 1 to skip "user"
+  // if (text.empty() && cmd.params.size() > 1) {
+  //   for (size_t i = 1; i < cmd.params.size(); ++i) {
+  //     if (i > 1)
+  //       text += " ";
+  //     text += cmd.params[i];
+  //   }
+  // }
+
   // No text to send
-  if (cmd.trailing.empty()) {
+  if (text.empty()) {
     server->sendReply(client->getFd(), ":ircserver 412 :No text to send\r\n");
     return;
   }
-
-  std::string target = cmd.params[0];
-  std::string text = cmd.trailing;
 
   /* ===== CHANNEL MESSAGE ===== */
   if (!target.empty() && target[0] == '#') {
@@ -221,7 +231,7 @@ void CommandHandler::handlePONG(Server *server, Client *client,
 /* ============================= */
 
 void CommandHandler::handleWHOIS(Server *server, Client *client,
-                                const ParsedCommand &cmd) {
+                                 const ParsedCommand &cmd) {
   if (!requireParams(server, client, cmd, 1, "WHOIS"))
     return;
 
@@ -230,12 +240,9 @@ void CommandHandler::handleWHOIS(Server *server, Client *client,
   if (!target)
     return;
 
-  server->sendReply(client->getFd(), RPL_WHOISUSER(
-    target->getNickname(),
-    target->getUsername(),
-    "localhost",
-    target->getRealname()
-  ));
+  server->sendReply(client->getFd(),
+                    RPL_WHOISUSER(target->getNickname(), target->getUsername(),
+                                  "localhost", target->getRealname()));
 
   std::string chanList;
   const std::vector<Channel *> &joinedChannels = target->getJoinedChannels();
@@ -246,13 +253,9 @@ void CommandHandler::handleWHOIS(Server *server, Client *client,
   }
 
   // Reply with WHOISCHANNELS
-  server->sendReply(client->getFd(), RPL_WHOISCHANNELS(
-    target->getNickname(),
-    chanList
-  ));
+  server->sendReply(client->getFd(),
+                    RPL_WHOISCHANNELS(target->getNickname(), chanList));
 
   // End of WHOIS
-  server->sendReply(client->getFd(), RPL_ENDOFWHOIS(
-    target->getNickname()
-  ));
+  server->sendReply(client->getFd(), RPL_ENDOFWHOIS(target->getNickname()));
 }

@@ -6,7 +6,7 @@
 /*   By: kmummadi <kmummadi@student.42heilbronn.de  +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/12/04 18:43:23 by kmummadi          #+#    #+#             */
-/*   Updated: 2025/12/04 18:44:39 by kmummadi         ###   ########.fr       */
+/*   Updated: 2025/12/12 07:44:15 by kmummadi         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -35,11 +35,20 @@ void Server::acceptNewClient() {
 
   fcntl(clientFd, F_SETFL, O_NONBLOCK);
 
+  // extract IP of the client
+  char ipStr[INET_ADDRSTRLEN];
+  // converts binary ip data into human readable string
+  inet_ntop(AF_INET, &(clientAddr.sin_addr), ipStr, INET_ADDRSTRLEN);
+
+  // LOG CONNECTION
+  Logger::logConnect(clientFd, ipStr, ntohs(clientAddr.sin_port));
+
+  // Add client to list
   _clients[clientFd] = new Client(clientFd);
 
   addPollFd(clientFd);
 
-  std::cout << "Client connected: fd " << clientFd << std::endl;
+  // std::cout << "Client connected: fd " << clientFd << std::endl;
 }
 
 /**
@@ -61,6 +70,11 @@ bool Server::handleClientRead(int index) {
   std::vector<std::string> msgs = extractMessages(c);
   for (size_t i = 0; i < msgs.size(); i++) {
     handleCommand(c, msgs[i]);
+
+    // Say client uses QUIT and he doesn't exist
+    if (_clients.find(fd) == _clients.end()) {
+      return (false);
+    }
   }
 
   return (true);
@@ -76,6 +90,9 @@ void Server::removeClient(int fd) {
   // Remove from poll
   removePollFd(fd);
 
+  // LOG DISCONNECTION
+  Logger::logDisconnect(fd, "Connection closed by peer or quit");
+
   if (_clients.count(fd)) {
     std::string nick = _clients[fd]->getNickname();
     disconnectClientFromChannels(fd);
@@ -86,7 +103,7 @@ void Server::removeClient(int fd) {
   }
   close(fd);
 
-  std::cout << "Client disconnected: fd " << fd << std::endl;
+  // std::cout << "Client disconnected: fd " << fd << std::endl;
 }
 
 /**
