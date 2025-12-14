@@ -6,7 +6,7 @@
 /*   By: kmummadi <kmummadi@student.42heilbronn.de  +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/12/03 16:47:38 by kmummadi          #+#    #+#             */
-/*   Updated: 2025/12/05 07:43:32 by kmummadi         ###   ########.fr       */
+/*   Updated: 2025/12/12 07:38:50 by kmummadi         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -57,7 +57,9 @@ bool Server::_signal = false;
  */
 void Server::signalHandler(int signum) {
   (void)signum; // Silence unused warning
-  std::cout << "\nSignal received! Shutting down..." << std::endl;
+  // std::cout << "\nSignal received! Shutting down..." << std::endl;
+  std::cout << "\r";
+  Logger::info("Signal", "Signal received! Initiating shutdown...");
   Server::_signal = true; // Flip the switch
 }
 
@@ -96,7 +98,8 @@ Server::~Server() {
     close(_listenFd);
   }
 
-  std::cout << "Server shutdown: All resources freed." << std::endl;
+  // std::cout << "Server shutdown: All resources freed." << std::endl;
+  Logger::info("Server", "Server shutdown: All resources freed.");
 }
 
 /**
@@ -160,6 +163,9 @@ void Server::initSocket() {
     throw std::runtime_error("listen() failed");
 
   addPollFd(_listenFd);
+
+  Logger::info("Server", "Listening on port " + _port);
+  Logger::info("Server", "Password authentication enabled");
 }
 
 /* ============================= */
@@ -312,6 +318,15 @@ void Server::handleCommand(Client *client, const std::string &msg) {
     name[i] =
         static_cast<char>(std::toupper(static_cast<unsigned char>(name[i])));
   }
+
+  // Logging commands
+  std::string logParams;
+  for (size_t i = 0; i < cmd.params.size(); ++i)
+    logParams += cmd.params[i] + " ";
+  if (!cmd.trailing.empty())
+    logParams += ":" + cmd.trailing;
+
+  Logger::logCommand(client->getNickname(), cmd.command, logParams);
 
   // Commands that are allowed even if the client is not fully registered
   bool alwaysAllowed = (name == "PASS" || name == "NICK" || name == "USER" ||

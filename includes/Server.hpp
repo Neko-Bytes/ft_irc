@@ -27,6 +27,8 @@
 #include <unistd.h>
 #include <vector>
 
+#include "Logger.hpp"
+
 class Client;
 class Channel;
 struct ParsedCommand;

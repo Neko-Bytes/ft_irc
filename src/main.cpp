@@ -6,7 +6,7 @@
 /*   By: kmummadi <kmummadi@student.42heilbronn.de  +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/12/04 03:45:09 by kmummadi          #+#    #+#             */
-/*   Updated: 2025/12/04 03:45:26 by kmummadi         ###   ########.fr       */
+/*   Updated: 2025/12/12 07:33:07 by kmummadi         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -47,7 +47,7 @@ int main(int argc, char **argv) {
     Server server(port, password);
     server.run();
   } catch (const std::exception &e) {
-    std::cerr << "Server error: " << e.what() << std::endl;
+    Logger::error("Main", e.what());
     return 1;
   }
 

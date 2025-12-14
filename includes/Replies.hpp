@@ -40,34 +40,40 @@
 
 #define ERR_NOSUCHNICK(nick)                                                   \
   (std::string(":ircserver 401 * ") + (nick) + " :No such nick\r\n")
-  
+
 #define ERR_NOTREGISTERED                                                      \
   (std::string(":ircserver 451 * :You have not registered\r\n"))
-  
-  /* ============================= */
-  /*    CHANNEL ERROR NUMERICS     */
-  /* ============================= */
-  
+
+/* ============================= */
+/*    CHANNEL ERROR NUMERICS     */
+/* ============================= */
+
 #define ERR_NOSUCHCHANNEL(chan)                                                \
   (std::string(":ircserver 403 * ") + (chan) + " :No such channel\r\n")
 
+#define ERR_USERNOTINCHANNEL(nick, chan)                                       \
+  (std::string(":ircserver 441 * ") + (nick) + " " + (chan) +                  \
+   " :They aren't on that channel\r\n")
+
 #define ERR_NOTONCHANNEL(chan)                                                 \
-  (std::string(":ircserver 442 * ") + (chan) + " :You're not on that channel\r\n")
-  
+  (std::string(":ircserver 442 * ") + (chan) +                                 \
+   " :You're not on that channel\r\n")
+
 #define ERR_CANNOTSENDTOCHAN(chan)                                             \
   (std::string(":ircserver 404 * ") + (chan) + " :Cannot send to channel\r\n")
-  
+
 #define ERR_CHANNELISFULL(chan)                                                \
   (std::string(":ircserver 471 * ") + (chan) + " :Cannot join channel (+l)\r\n")
 
-#define ERR_INVITEONLYCHAN(chan)                                              \
+#define ERR_INVITEONLYCHAN(chan)                                               \
   (std::string(":ircserver 473 * ") + (chan) + " :Cannot join channel (+i)\r\n")
 
-#define ERR_BADCHANNELKEY(chan)                                               \
+#define ERR_BADCHANNELKEY(chan)                                                \
   (std::string(":ircserver 475 * ") + (chan) + " :Cannot join channel (+k)\r\n")
 
-#define ERR_CHANOPRIVSNEEDED(chan)                                            \
-  (std::string(":ircserver 482 * ") + (chan) + " :You're not channel operator\r\n")
+#define ERR_CHANOPRIVSNEEDED(chan)                                             \
+  (std::string(":ircserver 482 * ") + (chan) +                                 \
+   " :You're not channel operator\r\n")
 
 /* ============================= */
 /*      REGISTRATION NUMERICS    */
@@ -88,27 +94,28 @@
 /*      CHANNEL NUMERICS         */
 /* ============================= */
 
-#define RPL_INVITING(target, chan)                                            \
+#define RPL_INVITING(target, chan)                                             \
   (std::string(":ircserver 341 ") + (target) + " " + (chan) + "\r\n")
-#define RPL_NOTOPIC(nick, chan)                                               \
-  (std::string(":ircserver 331 ") + (nick) + " " + (chan) +                   \
+#define RPL_NOTOPIC(nick, chan)                                                \
+  (std::string(":ircserver 331 ") + (nick) + " " + (chan) +                    \
    " :No topic is set\r\n")
-#define RPL_TOPIC(nick, chan, topic)                                         \
-  (std::string(":ircserver 332 ") + (nick) + " " + (chan) + " :" + (topic) + "\r\n")
-
-/* ============================= */
-/*      QUERY NUMERICS      */
-/* ============================= */
-
-#define RPL_CHANNELMODEIS(nick, chan, modes)                                  \
-  (std::string(":ircserver 324 ") + (nick) + " " + (chan) + " " + (modes) +  \
+#define RPL_TOPIC(nick, chan, topic)                                           \
+  (std::string(":ircserver 332 ") + (nick) + " " + (chan) + " :" + (topic) +   \
    "\r\n")
 
-#define RPL_WHOISUSER(nick, user, host, real)                                   \
-  (std::string(":ircserver 311 ") + (nick) + " " + (user) + " " + (host) +    \
+/* ============================= */
+/*      QUERY NUMERICS           */
+/* ============================= */
+
+#define RPL_CHANNELMODEIS(nick, chan, modes)                                   \
+  (std::string(":ircserver 324 ") + (nick) + " " + (chan) + " " + (modes) +    \
+   "\r\n")
+
+#define RPL_WHOISUSER(nick, user, host, real)                                  \
+  (std::string(":ircserver 311 ") + (nick) + " " + (user) + " " + (host) +     \
    " * :" + (real) + "\r\n")
-#define RPL_WHOISCHANNELS(nick, chanList)                                     \
+#define RPL_WHOISCHANNELS(nick, chanList)                                      \
   (std::string(":ircserver 319 ") + (nick) + " :" + (chanList) + "\r\n")
-#define RPL_ENDOFWHOIS(nick)                                               \
+#define RPL_ENDOFWHOIS(nick)                                                   \
   (std::string(":ircserver 318 ") + (nick) + " :End of WHOIS list\r\n")
 #endif
