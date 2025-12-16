@@ -202,8 +202,13 @@ void CommandHandler::handleKICK(Server *server, Client *client,
   if (!target)
     return;
 
+  if (!channel->hasClient(client)) {
+     server->sendReply(client->getFd(), ERR_NOTONCHANNEL(channel->getName()));
+    return;
+  }
+
   if (!channel->hasClient(target)) {
-    server->sendReply(client->getFd(), ERR_NOTONCHANNEL(channel->getName()));
+    server->sendReply(client->getFd(), ERR_USERNOTINCHANNEL(targetNick, channel->getName()));
     return;
   }
 
