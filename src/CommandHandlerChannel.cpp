@@ -145,6 +145,7 @@ void CommandHandler::handleJOIN(Server *server, Client *client,
     } else {
       server->sendReply(client->getFd(), RPL_NOTOPIC(client->getNickname(), chanName));
     }
+    replyActiveModes(server, *channel, *client);
   }
 }
 

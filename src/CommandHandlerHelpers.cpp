@@ -151,6 +151,10 @@ bool CommandHandler::modeApplyLetter(ModeContext &ctx, char sign, char mode) {
       // (Servers may validate and error, but clients must also handle silent ignore.)
       if (key.empty())
         return false;
+      if (ctx.channel->hasKey()) {
+        ctx.server->sendReply(ctx.client->getFd(), ERR_KEYSET(ctx.chanName));
+        return false;
+      }
       ctx.channel->setKey(key);
       // Hide sensitive information in broadcast.
       const std::string maskedKey = "*";

@@ -51,6 +51,8 @@ public:
                          const ParsedCommand &cmd);
   static void handlePRIVMSG(Server *server, Client *client,
                             const ParsedCommand &cmd);
+  static void handleNOTICE(Server *server, Client *client,
+                           const ParsedCommand &cmd);
   static void handlePING(Server *server, Client *client,
                          const ParsedCommand &cmd);
   static void handlePONG(Server *server, Client *client,
@@ -61,6 +63,8 @@ public:
                          const ParsedCommand &cmd);
   static void handleWHOIS(Server *server, Client *client,
                           const ParsedCommand &cmd);
+  static void handleWHO(Server *server, Client *client,
+                        const ParsedCommand &cmd);
   static void handleTOPIC(Server *server, Client *client,
                           const ParsedCommand &cmd);
   // internal helpers for command handlers

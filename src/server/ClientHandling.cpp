@@ -84,12 +84,6 @@ bool Server::handleClientRead(int index) {
  * @brief Removes a client from the server.
  */
 void Server::removeClient(int fd) {
-  // Remove from all channels first
-  disconnectClientFromChannels(fd);
-
-  // Remove from poll
-  removePollFd(fd);
-
   // LOG DISCONNECTION
   Logger::logDisconnect(fd, "Connection closed by peer or quit");
 
@@ -101,6 +95,7 @@ void Server::removeClient(int fd) {
     delete _clients[fd];
     _clients.erase(fd);
   }
+  removePollFd(fd);
   close(fd);
 
   // std::cout << "Client disconnected: fd " << fd << std::endl;

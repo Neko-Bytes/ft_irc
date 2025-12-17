@@ -91,6 +91,10 @@
 
 #define ERR_INVALIDMODEPARAM(chan)                                             \
   (std::string(":ircserver 696 * ") + (chan) + " :Invalid MODE parameter\r\n")
+#define ERR_UNKNOWNCOMMAND(cmd)                                                 \
+  (std::string(":ircserver 421 * ") + (cmd) + " :Unknown command\r\n")
+#define ERR_KEYSET(chan)                                             \
+  (std::string(":ircserver 467 * ") + (chan) + " :Channel key already set\r\n")
 /* ============================= */
 /*      REGISTRATION NUMERICS    */
 /* ============================= */
@@ -137,4 +141,11 @@
   (std::string(":ircserver 319 ") + (nick) + " :" + (chanList) + "\r\n")
 #define RPL_ENDOFWHOIS(nick)                                                   \
   (std::string(":ircserver 318 ") + (nick) + " :End of WHOIS list\r\n")
+#define RPL_WHOREPLY(requester, channel, user, host, server, nick, status, real) \
+  (std::string(":ircserver 352 ") + (requester) + " " + (channel) + " " +        \
+   (user) + " " + (host) + " " + (server) + " " + (nick) + " " + (status) + \
+   " :" + (real) + "\r\n")
+#define RPL_ENDOFWHO(requester, name)                                          \
+  (std::string(":ircserver 315 ") + (requester) + " " + (name) +              \
+   " :End of WHO list\r\n")
 #endif

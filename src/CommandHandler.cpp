@@ -136,12 +136,10 @@ void CommandHandler::handleQUIT(Server *server, Client *client,
 
   const std::vector<Channel *> &joined = client->getJoinedChannels();
 
-  // Broadcast QUIT and remove client from all channels
+  // Broadcast QUIT
   for (size_t i = 0; i < joined.size(); i++) {
     Channel *ch = joined[i];
     ch->broadcast(quitMsg, client);
-    ch->removeClient(client);
-    server->cleanupChannel(ch->getName());
   }
   server->removeClient(client->getFd());
 }
@@ -223,6 +221,36 @@ void CommandHandler::handlePRIVMSG(Server *server, Client *client,
 }
 
 /* ============================= */
+/*            NOTICE             */
+/* ============================= */
+
+void CommandHandler::handleNOTICE(Server *server, Client *client,
+                                  const ParsedCommand &cmd) {
+  if (cmd.params.empty())
+    return;
+
+  std::string target = cmd.params[0];
+  std::string text = cmd.trailing;
+  if (text.empty())
+    return;
+  std::string msg = ":" + client->getNickname() + "!" + client->getUsername() + 
+                    "@localhost NOTICE " + target + " :" + text + "\r\n";
+  if (!target.empty() && target[0] == '#') {
+    if (!server->_channels.count(target))
+      return;
+    Channel *channel = server->_channels[target];
+    if (!channel->hasClient(client))
+      return;
+    channel->broadcast(msg, client);
+    return;
+  }
+  Client *receiver = server->getClientByNick(target);
+  if (!receiver)
+    return;
+  server->sendReply(receiver->getFd(), msg);
+}
+
+/* ============================= */
 /*         PING / PONG           */
 /* ============================= */
 
@@ -276,4 +304,44 @@ void CommandHandler::handleWHOIS(Server *server, Client *client,
 
   // End of WHOIS
   server->sendReply(client->getFd(), RPL_ENDOFWHOIS(target->getNickname()));
+}
+
+/* ============================= */
+/*             WHO               */
+/* ============================= */
+
+void CommandHandler::handleWHO(Server *server, Client *client,
+                               const ParsedCommand &cmd) {
+  if (!requireParams(server, client, cmd, 1, "WHO"))
+    return;
+
+  const std::string &mask = cmd.params[0];
+  if (!mask.empty() && mask[0] == '#') {
+    if (!server->_channels.count(mask)) {
+      server->sendReply(client->getFd(), ERR_NOSUCHCHANNEL(mask));
+      return;
+    }
+    Channel *channel = server->_channels[mask];
+    const std::vector<Client *> &members = channel->getClients();
+    for (size_t i = 0; i < members.size(); ++i) {
+      Client *entry = members[i];
+      server->sendReply(client->getFd(), RPL_WHOREPLY(client->getNickname(), channel->getName(),
+                        entry->getUsername(), "localhost", "ircserver", entry->getNickname(), "H", entry->getRealname()));
+    }
+  } else {
+    Client *target = server->getClientByNick(mask);
+    if (!target) {
+      server->sendReply(client->getFd(), ERR_NOSUCHNICK(mask));
+      return;
+    }
+    std::string chanName = "*";
+    const std::vector<Channel *> &joined = target->getJoinedChannels();
+    if (!joined.empty())
+      chanName = joined[0]->getName();
+    server->sendReply(
+        client->getFd(),
+        RPL_WHOREPLY(client->getNickname(), chanName, target->getUsername(),
+                      "localhost", "ircserver", target->getNickname(), "H", target->getRealname()));
+  }
+  server->sendReply(client->getFd(), RPL_ENDOFWHO(client->getNickname(), mask));
 }

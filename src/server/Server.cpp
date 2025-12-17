@@ -350,6 +350,8 @@ void Server::handleCommand(Client *client, const std::string &msg) {
     CommandHandler::handlePART(this, client, cmd);
   else if (name == "PRIVMSG")
     CommandHandler::handlePRIVMSG(this, client, cmd);
+  else if (name == "NOTICE")
+    CommandHandler::handleNOTICE(this, client, cmd);
   else if (name == "PING")
     CommandHandler::handlePING(this, client, cmd);
   else if (name == "PONG")
@@ -358,6 +360,8 @@ void Server::handleCommand(Client *client, const std::string &msg) {
     CommandHandler::handleKICK(this, client, cmd);
   else if (name == "MODE")
     CommandHandler::handleMODE(this, client, cmd);
+  else if (name == "WHO")
+    CommandHandler::handleWHO(this, client, cmd);
   else if (name == "TOPIC")
     CommandHandler::handleTOPIC(this, client, cmd);
   else if (name == "INVITE")
@@ -366,6 +370,8 @@ void Server::handleCommand(Client *client, const std::string &msg) {
     CommandHandler::handleWHOIS(this, client, cmd);
   else if (name == "QUIT")
     CommandHandler::handleQUIT(this, client, cmd);
+  else
+    sendReply(client->getFd(), ERR_UNKNOWNCOMMAND(name));
 }
 
 /* ============================= */
