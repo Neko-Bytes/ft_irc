@@ -44,6 +44,9 @@
 #define ERR_NOTREGISTERED                                                      \
   (std::string(":ircserver 451 * :You have not registered\r\n"))
 
+#define ERR_PASSWDMISMATCH(client)                                             \
+  (std::string(":ircserver 464 ") + (client) + " :Password incorrect\r\n")
+
 /* ============================= */
 /*    CHANNEL ERROR NUMERICS     */
 /* ============================= */
@@ -75,9 +78,10 @@
   (std::string(":ircserver 482 * ") + (chan) +                                 \
    " :You're not channel operator\r\n")
 
-#define ERR_USERONCHANNEL(nick, chan)                                         \
+#define ERR_USERONCHANNEL(nick, chan)                                          \
   (std::string(":ircserver 443 * ") + (nick) + " " + (chan) +                  \
    " :is already on channel\r\n")
+
 /* ============================= */
 /*      REGISTRATION NUMERICS    */
 /* ============================= */
