@@ -126,6 +126,8 @@ void CommandHandler::handleJOIN(Server *server, Client *client,
     std::string names = ":ircserver 353 " + client->getNickname() + " = " +
                         chanName + " :";
     for (size_t i = 0; i < members.size(); ++i) {
+      if (channel->isOperator(members[i]))
+        names += "@";
       names += members[i]->getNickname();
       if (i + 1 < members.size())
         names += " ";

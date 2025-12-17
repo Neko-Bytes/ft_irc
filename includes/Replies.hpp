@@ -82,6 +82,15 @@
   (std::string(":ircserver 443 * ") + (nick) + " " + (chan) +                  \
    " :is already on channel\r\n")
 
+#define ERR_USERSDONTMATCH(nick)                                             \
+  (std::string(":ircserver 502 ") + (nick) +                               \
+   " :Cannot change mode for other users\r\n")
+
+#define ERR_UMODEUNKNOWNFLAG(nick)                                             \
+  (std::string(":ircserver 501 ") + (nick) + " :Unknown MODE flag\r\n")
+
+#define ERR_INVALIDMODEPARAM(chan)                                             \
+  (std::string(":ircserver 696 * ") + (chan) + " :Invalid MODE parameter\r\n")
 /* ============================= */
 /*      REGISTRATION NUMERICS    */
 /* ============================= */
@@ -117,6 +126,9 @@
 #define RPL_CHANNELMODEIS(nick, chan, modes)                                   \
   (std::string(":ircserver 324 ") + (nick) + " " + (chan) + " " + (modes) +    \
    "\r\n")
+
+#define RPL_UMODEIS(nick, modes)                                             \
+  (std::string(":ircserver 221 ") + (nick) + " " + (modes) + "\r\n")
 
 #define RPL_WHOISUSER(nick, user, host, real)                                  \
   (std::string(":ircserver 311 ") + (nick) + " " + (user) + " " + (host) +     \

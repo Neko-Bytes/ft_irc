@@ -17,10 +17,13 @@
 #include "Parser.hpp"
 
 #include <algorithm>
+#include <cstddef>
 #include <string>
+#include <vector>
 #include <sys/socket.h>
 
 class Server;
+class Channel;
 
 /**
  * @brief Module containing static handlers for IRC commands.
@@ -62,6 +65,31 @@ public:
                           const ParsedCommand &cmd);
   // internal helpers for command handlers
   private:
+  struct ModeContext {
+    Server *server;
+    Client *client;
+    Channel *channel;
+    std::string chanName;
+
+    std::vector<std::string> args;
+    size_t argIndex;
+
+    std::string outModes;
+    std::vector<std::string> outArgs;
+    char lastOutSign;
+
+    ModeContext(Server *srv, Client *cli, Channel *chan, const std::string &name)
+        : server(srv), client(cli), channel(chan), chanName(name), argIndex(0),
+          lastOutSign(0) {}
+  };
+
+  static bool modeTakeArg(ModeContext &ctx, std::string &out);
+  static bool modeTakePositiveInt(ModeContext &ctx, int &out, std::string *rawOut);
+  static void modeAppendApplied(ModeContext &ctx, char sign, char mode,
+                                const std::string *arg);
+  static bool modeApplyLetter(ModeContext &ctx, char sign, char mode);
+  static std::string modeBuildBroadcast(const ModeContext &ctx);
+
   static bool requireParams(Server *server, Client *client, const ParsedCommand &cmd,
                    size_t expectedCount, const std::string &cmdName);
   static Channel *expectChannel(Server *server, Client *client,

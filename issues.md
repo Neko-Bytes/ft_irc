@@ -30,7 +30,7 @@ MODE #test +o bob
 
 ## Error:
 
-### Status = Not fixed
+### Status = not a bug but a feature 
 
 ### Terminal 1: 
 
