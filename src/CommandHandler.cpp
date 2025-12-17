@@ -62,6 +62,15 @@ void CommandHandler::handlePASS(Server *server, Client *client,
 
 void CommandHandler::handleNICK(Server *server, Client *client,
                                 const ParsedCommand &cmd) {
+  // Check if pass has been entered first
+  if (!client->hasValidPass()) {
+    server->sendReply(client->getFd(),
+                      ERR_PASSWDMISMATCH(client->getNickname().empty()
+                                             ? "*"
+                                             : client->getNickname()));
+    return;
+  }
+
   if (cmd.params.empty()) {
     server->sendReply(client->getFd(), ERR_NONICKNAMEGIVEN);
     return;
@@ -84,6 +93,15 @@ void CommandHandler::handleNICK(Server *server, Client *client,
 
 void CommandHandler::handleUSER(Server *server, Client *client,
                                 const ParsedCommand &cmd) {
+  // Check if pass has been entered first
+  if (!client->hasValidPass()) {
+    server->sendReply(client->getFd(),
+                      ERR_PASSWDMISMATCH(client->getNickname().empty()
+                                             ? "*"
+                                             : client->getNickname()));
+    return;
+  }
+
   if (cmd.params.size() < 3 || cmd.trailing.empty()) {
     server->sendReply(client->getFd(), ERR_NEEDMOREPARAMS("USER"));
     return;
