@@ -75,6 +75,9 @@
   (std::string(":ircserver 482 * ") + (chan) +                                 \
    " :You're not channel operator\r\n")
 
+#define ERR_USERONCHANNEL(nick, chan)                                         \
+  (std::string(":ircserver 443 * ") + (nick) + " " + (chan) +                  \
+   " :is already on channel\r\n")
 /* ============================= */
 /*      REGISTRATION NUMERICS    */
 /* ============================= */

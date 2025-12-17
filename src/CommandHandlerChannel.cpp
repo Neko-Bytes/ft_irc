@@ -24,11 +24,26 @@ void CommandHandler::handleINVITE(Server *server, Client *client,
   Channel *channel =
       expectChannel(server, client, cmd.params[1], "INVITE", true, true, true);
   if (!channel)
+  {
+    server->sendReply(client->getFd(), ERR_NOSUCHCHANNEL(cmd.params[1]));
     return;
+  }
 
   Client *target = resolveClientOrReply(server, client, targetNick);
   if (!target)
     return;
+  if (!channel->hasClient(client)) {
+    server->sendReply(client->getFd(), ERR_NOTONCHANNEL(channel->getName()));
+    return;
+  }
+  if (channel->isInviteOnly() && !channel->isOperator(client)) {
+    server->sendReply(client->getFd(), ERR_CHANOPRIVSNEEDED(channel->getName()));
+    return;
+  }
+  if (channel->hasClient(target)) {
+    server->sendReply(client->getFd(), ERR_USERONCHANNEL(targetNick, channel->getName()));
+    return;
+  }
   channel->inviteNickname(targetNick);
 
 
@@ -78,6 +93,7 @@ void CommandHandler::handleJOIN(Server *server, Client *client,
 
     Channel *channel = server->getOrCreateChannel(chanName);
     std::string providedKey = idx < keys.size() ? keys[idx] : std::string();
+    
     if (channel->hasKey() && providedKey != channel->getKey()) {
       server->sendReply(client->getFd(), ERR_BADCHANNELKEY(chanName));
       continue;
@@ -92,21 +108,20 @@ void CommandHandler::handleJOIN(Server *server, Client *client,
       server->sendReply(client->getFd(), ERR_CHANNELISFULL(chanName));
       continue;
     }
-    if (channel->hasClient(client)) {
-      continue;
-    }
 
-    channel->addClient(client);
-    client->joinChannel(channel);
-    channel->removeInvited(client->getNickname()); 
+    bool alreadyOnChannel = channel->hasClient(client);
     
-    if (channel->getClients().size() == 1) {
-      channel->addOperator(client);
+    if (!alreadyOnChannel) {
+      channel->addClient(client);
+      client->joinChannel(channel);
+      channel->removeInvited(client->getNickname());
+      
+      if (channel->getClients().size() == 1) {
+        channel->addOperator(client);
+      }
+      std::string joinMsg = prefix + " JOIN " + chanName + "\r\n";
+      channel->broadcast(joinMsg, NULL);
     }
-
-    std::string joinMsg = prefix + " JOIN " + chanName + "\r\n";
-    channel->broadcast(joinMsg, NULL);
-
     const std::vector<Client *> &members = channel->getClients();
     std::string names = ":ircserver 353 " + client->getNickname() + " = " +
                         chanName + " :";
@@ -118,18 +133,15 @@ void CommandHandler::handleJOIN(Server *server, Client *client,
     names += "\r\n";
     server->sendReply(client->getFd(), names);
 
-    std::string endMsg = ":ircserver 366 " +
-                         client->getNickname() + " " + chanName +
-                         " :End of NAMES list\r\n";
+    std::string endMsg = ":ircserver 366 " + client->getNickname() + " " 
+                          + chanName + " :End of NAMES list\r\n";
     server->sendReply(client->getFd(), endMsg);
 
     const std::string &topic = channel->getTopic();
     if (!topic.empty()) {
-      server->sendReply(client->getFd(),
-                        RPL_TOPIC(client->getNickname(), chanName, topic));
+      server->sendReply(client->getFd(), RPL_TOPIC(client->getNickname(), chanName, topic));
     } else {
-      server->sendReply(client->getFd(),
-                        RPL_NOTOPIC(client->getNickname(), chanName));
+      server->sendReply(client->getFd(), RPL_NOTOPIC(client->getNickname(), chanName));
     }
   }
 }
@@ -201,9 +213,12 @@ void CommandHandler::handleKICK(Server *server, Client *client,
   Client *target = resolveClientOrReply(server, client, targetNick);
   if (!target)
     return;
-
+  if (!channel->hasClient(client)) {
+     server->sendReply(client->getFd(), ERR_NOTONCHANNEL(channel->getName()));
+    return;
+  }
   if (!channel->hasClient(target)) {
-    server->sendReply(client->getFd(), ERR_NOTONCHANNEL(channel->getName()));
+    server->sendReply(client->getFd(), ERR_USERNOTINCHANNEL(targetNick, channel->getName()));
     return;
   }
 
