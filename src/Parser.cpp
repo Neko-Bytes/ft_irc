@@ -26,6 +26,7 @@ ParsedCommand Parser::parse(const std::string &line) {
   while (iss >> token) {
     if (!trailingFound && token.size() > 0 && token[0] == ':') {
       trailingFound = true;
+      result.hasTrailing = true;
       result.trailing = token.substr(1);
 
       std::string rest;

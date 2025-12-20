@@ -22,6 +22,7 @@
 #include "../includes/Replies.hpp"
 #include "../includes/Server.hpp"
 
+#include <set>
 #include <sstream>
 #include <sys/socket.h>
 
@@ -78,9 +79,45 @@ void CommandHandler::handleNICK(Server *server, Client *client,
 
   const std::string &nick = cmd.params[0];
 
+  const std::string oldNick = client->getNickname();
+  if (!oldNick.empty() && nick == oldNick)
+    return;
+
   if (server->nicknameInUse(nick)) {
     server->sendReply(client->getFd(), ERR_NICKNAMEINUSE(nick));
     return;
+  }
+
+  if (client->isAuthenticated() && !oldNick.empty()) {
+    const std::string nickMsg = ":" + oldNick + "!" + client->getUsername() +
+                               "@localhost NICK " + nick + "\r\n";
+
+    std::set<int> sentFds;
+    const std::vector<Channel *> &joined = client->getJoinedChannels();
+    for (size_t i = 0; i < joined.size(); ++i) {
+      Channel *ch = joined[i];
+      const std::vector<Client *> &members = ch->getClients();
+      for (size_t j = 0; j < members.size(); ++j) {
+        Client *dst = members[j];
+        if (dst == client)
+          continue;
+        if (sentFds.insert(dst->getFd()).second)
+          server->sendReply(dst->getFd(), nickMsg);
+      }
+    }
+
+    server->sendReply(client->getFd(), nickMsg);
+
+    for (std::map<std::string, Channel *>::iterator it = server->_channels.begin();
+         it != server->_channels.end(); ++it) {
+      Channel *channel = it->second;
+      if (!channel)
+        continue;
+      if (channel->isInvited(oldNick)) {
+        channel->removeInvited(oldNick);
+        channel->inviteNickname(nick);
+      }
+    }
   }
 
   client->setNickname(nick);

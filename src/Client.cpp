@@ -44,8 +44,8 @@ const std::string &Client::getBuffer() const { return _buffer; }
 bool Client::isAuthenticated() const { return _authenticated; }
 std::string &Client::getBufferRef() { return _buffer; }
 bool Client::hasValidPass() const { return _hasValidPass; }
-std::deque<std::string> Client::getoutputBuffer() const { return _outputBuffer; }
-int Client::getOutputBufferSize() const { return _outputBufferSize; }
+const std::deque<std::string> &Client::getoutputBuffer() const { return _outputBuffer; }
+size_t Client::getOutputBufferSize() const { return _outputBufferSize; }
 
 /* ============================= */
 /*           SETTERS             */

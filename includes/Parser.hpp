@@ -28,6 +28,9 @@ struct ParsedCommand {
   std::string command;
   std::vector<std::string> params;
   std::string trailing;
+  bool hasTrailing;
+
+  ParsedCommand() : hasTrailing(false) {}
 };
 
 /**

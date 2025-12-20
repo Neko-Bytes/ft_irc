@@ -92,7 +92,9 @@ void CommandHandler::handleTOPIC(Server *server, Client *client,
   if (!channel)
     return;
 
-  if (cmd.trailing.empty()) {
+  bool isSetting = cmd.hasTrailing || cmd.params.size() > 1;
+
+  if (!isSetting) {
     const std::string &topic = channel->getTopic();
     if (topic.empty()) {
       server->sendReply(client->getFd(),
@@ -108,18 +110,13 @@ void CommandHandler::handleTOPIC(Server *server, Client *client,
     server->sendReply(client->getFd(), ERR_CHANOPRIVSNEEDED(chanName));
     return;
   }
-  if (cmd.trailing.length() > 300) {
-    server->sendReply(client->getFd(),
-                      ":ircserver 422 " + client->getNickname() + " " +
-                          chanName +
-                          " :Topic is too long (maximum 300 characters)\r\n");
-    return;
+  std::string newTopic = cmd.hasTrailing ? cmd.trailing : cmd.params[1];
+  if (newTopic.length() > 300) {
+    newTopic = newTopic.substr(0, 300);
   }
-
-  channel->setTopic(cmd.trailing);
+  channel->setTopic(newTopic);
   std::string topicLine =
-      makePrefix(client) + " TOPIC " + chanName + " :" + cmd.trailing + "\r\n";
+      makePrefix(client) + " TOPIC " + chanName + " :" + newTopic + "\r\n";
+  
   channel->broadcast(topicLine, NULL);
-  server->sendReply(client->getFd(),
-                    RPL_TOPIC(client->getNickname(), chanName, cmd.trailing));
 }

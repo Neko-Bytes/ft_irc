@@ -24,10 +24,7 @@ void CommandHandler::handleINVITE(Server *server, Client *client,
   Channel *channel =
       expectChannel(server, client, cmd.params[1], "INVITE", true, true, true);
   if (!channel)
-  {
-    server->sendReply(client->getFd(), ERR_NOSUCHCHANNEL(cmd.params[1]));
     return;
-  }
 
   Client *target = resolveClientOrReply(server, client, targetNick);
   if (!target)
@@ -174,14 +171,13 @@ void CommandHandler::handlePART(Server *server, Client *client,
   if (!channel)
     return;
 
-  channel->removeClient(client);
-  client->leaveChannel(channel);
-
   std::string partMsg = ":" + client->getNickname() + "!" +
                         client->getUsername() + "@localhost PART " +
                         channel->getName() + "\r\n";
-
   channel->broadcast(partMsg, NULL);
+
+  channel->removeClient(client);
+  client->leaveChannel(channel);
 
   server->cleanupChannel(channel->getName());
 }

@@ -16,6 +16,7 @@
 #include <string>
 #include <vector>
 #include <deque>
+#include <cstddef>
 
 class Channel; // forward declaration
 
@@ -34,8 +35,8 @@ public:
   std::string &getBufferRef();
   bool isAuthenticated() const;
   bool hasValidPass() const;
-  std::deque<std::string> getoutputBuffer() const;
-  int getOutputBufferSize() const;
+  const std::deque<std::string> &getoutputBuffer() const;
+  size_t getOutputBufferSize() const;
 
   // Setters
   void setNickname(const std::string &nick);
@@ -86,7 +87,7 @@ private:
   bool _hasValidPass;
 
   std::string _buffer;            // stores partial packets
-  int _outputBufferSize; // total size of _outputBuffer
+  size_t _outputBufferSize; // total size of _outputBuffer
   std::deque<std::string> _outputBuffer;         // stores outgoing messages
   std::vector<Channel *> _joined; // channels the client is in
 };
