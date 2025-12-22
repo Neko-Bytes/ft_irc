@@ -100,7 +100,7 @@ public:
                        const std::string &rawName,
                        const std::string &cmdName, bool mustExist = true,
                        bool requireMember = false, bool requireOperator = false);
-  static bool ensureModeTargetProvided(Server *server, Client *client);
+  static bool ensureModeTargetProvided(Server *server, Client *client, const ParsedCommand &cmd);
   static Client *resolveClientOrReply(Server *server, Client *client,
                              const std::string &nick);
   static bool ensureValidLimit(Server *server, Client *client,

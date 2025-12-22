@@ -5,7 +5,7 @@
 ### Status = Fixed!
 
 ```
-:nick!nick@localhost JOIN #test
+:nick!nick@ircserv JOIN #test
 :ircserver 353 nick = #test :nick
 :ircserver 366 nick #test :End of NAMES list
 :ircserver 331 nick #test :No topic is set
@@ -16,12 +16,12 @@ MODE #optest +o ClientB
 MODE #optest +o ClientB        
 :ircserver 403 * #optest :No such channel
 mode #test +o bob
-:nick!nick@localhost MODE #test +o bob
+:nick!nick@ircserv MODE #test +o bob
 MODE #test +o bob
-:nick!nick@localhost MODE #test +o bob
-:bob!bob@localhost JOIN #test
+:nick!nick@ircserv MODE #test +o bob
+:bob!bob@ircserv JOIN #test
 MODE #test +o bob
-:nick!nick@localhost MODE #test +o bob
+:nick!nick@ircserv MODE #test +o bob
 
 ```
 
@@ -36,7 +36,7 @@ MODE #test +o bob
 
 ```
  ╭─teja@teja in ~ took 2m17s
-[🧱] × nc localhost 6667
+[🧱] × nc ircserv 6667
 pass pass
 nick nick
 user nick * 0 : nick
@@ -49,7 +49,7 @@ privmsg bob : hi
 
 ```
  ╭─teja@teja in ~ took 1h2m8s
-[🧱] × nc localhost 6667 
+[🧱] × nc ircserv 6667 
 pass pass
 nick nick
 :ircserver 433 * nick :Nickname is already in use
@@ -57,7 +57,7 @@ nick bob
 user nick * 0 : nick
 :ircserver 001 bob :Welcome to the IRC server!
 privmsg bob : hi
-:bob!nick@localhost PRIVMSG bob : hi
+:bob!nick@ircserv PRIVMSG bob : hi
 
 ```
 

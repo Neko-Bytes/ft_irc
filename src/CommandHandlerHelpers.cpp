@@ -12,7 +12,8 @@
 bool CommandHandler::requireParams(Server *server, Client *client, const ParsedCommand &cmd,
                    size_t expectedCount, const std::string &cmdName) {
   if (cmd.params.size() < expectedCount) {
-    server->sendReply(client->getFd(), ERR_NEEDMOREPARAMS(cmdName));
+    std::string nick = client->getNickname().empty() ? "*" : client->getNickname();
+    server->sendReply(client->getFd(), ERR_NEEDMOREPARAMS(nick, cmdName));
     return false;
   }
   return true;
@@ -23,9 +24,10 @@ Channel *CommandHandler::expectChannel(Server *server, Client *client,
                        const std::string &cmdName, bool mustExist,
                        bool requireMember, bool requireOperator) {
   std::string chanName = ensureChannelPrefix(rawName);
+  std::string nick = client->getNickname().empty() ? "*" : client->getNickname();
 
   if (mustExist && !server->_channels.count(chanName)) {
-    server->sendReply(client->getFd(), ERR_NOSUCHCHANNEL(chanName));
+    server->sendReply(client->getFd(), ERR_NOSUCHCHANNEL(nick, chanName));
     return NULL;
   }
 
@@ -34,29 +36,34 @@ Channel *CommandHandler::expectChannel(Server *server, Client *client,
     channel = server->_channels[chanName];
 
   if (requireMember && channel && !channel->hasClient(client)) {
-    server->sendReply(client->getFd(), ERR_NOTONCHANNEL(chanName));
+    server->sendReply(client->getFd(), ERR_NOTONCHANNEL(nick, chanName));
     return NULL;
   }
 
   if (requireOperator && channel && !channel->isOperator(client)) {
-    server->sendReply(client->getFd(), ERR_CHANOPRIVSNEEDED(chanName));
+    server->sendReply(client->getFd(), ERR_CHANOPRIVSNEEDED(nick, chanName));
     return NULL;
   }
   (void)cmdName;
   return channel;
 }
 
-
-bool CommandHandler::ensureModeTargetProvided(Server *server, Client *client) {
-  server->sendReply(client->getFd(), ERR_NEEDMOREPARAMS("MODE"));
-  return false;
+bool CommandHandler::ensureModeTargetProvided(Server *server, Client *client, const ParsedCommand &cmd) {
+  if (cmd.params.empty()) {
+    std::string nick = client->getNickname().empty() ? "*" : client->getNickname();
+    server->sendReply(client->getFd(), ERR_NEEDMOREPARAMS(nick, "MODE"));
+    return false;
+  }
+  return true;
 }
 
 Client *CommandHandler::resolveClientOrReply(Server *server, Client *client,
                              const std::string &nick) {
   Client *target = server->getClientByNick(nick);
-  if (!target)
-    server->sendReply(client->getFd(), ERR_NOSUCHNICK(nick));
+  if (!target) {
+    std::string clientNick = client->getNickname().empty() ? "*" : client->getNickname();
+    server->sendReply(client->getFd(), ERR_NOSUCHNICK(clientNick, nick));
+  }
   return target;
 }
 
@@ -64,7 +71,8 @@ bool CommandHandler::ensureValidLimit(Server *server, Client *client, const std:
                       int &outLimit) {
   outLimit = std::atoi(arg.c_str());
   if (outLimit <= 0) {
-    server->sendReply(client->getFd(), ERR_NEEDMOREPARAMS("MODE"));
+    std::string nick = client->getNickname().empty() ? "*" : client->getNickname();
+    server->sendReply(client->getFd(), ERR_NEEDMOREPARAMS(nick, "MODE"));
     return false;
   }
   return true;
@@ -79,8 +87,7 @@ std::string ensureChannelPrefix(const std::string &name) {
 }
 
 std::string makePrefix(Client *client) {
-  return ":" + client->getNickname() + "!" + client->getUsername() +
-         "@localhost";
+  return ":" + client->getNickname() + "!" + client->getUsername() + "@ircserv";
 }
 
 std::vector<std::string> splitCommaList(const std::string &list) {
@@ -152,7 +159,7 @@ bool CommandHandler::modeApplyLetter(ModeContext &ctx, char sign, char mode) {
       if (key.empty())
         return false;
       if (ctx.channel->hasKey()) {
-        ctx.server->sendReply(ctx.client->getFd(), ERR_KEYSET(ctx.chanName));
+        ctx.server->sendReply(ctx.client->getFd(), ERR_KEYSET(ctx.client->getNickname(), ctx.chanName));
         return false;
       }
       ctx.channel->setKey(key);
@@ -193,7 +200,7 @@ bool CommandHandler::modeApplyLetter(ModeContext &ctx, char sign, char mode) {
       return false;
     if (!ctx.channel->hasClient(targetClient)) {
       ctx.server->sendReply(ctx.client->getFd(),
-                            ERR_USERNOTINCHANNEL(nick, ctx.chanName));
+                            ERR_USERNOTINCHANNEL(ctx.client->getNickname(), nick, ctx.chanName));
       return false;
     }
     if (sign == '+')

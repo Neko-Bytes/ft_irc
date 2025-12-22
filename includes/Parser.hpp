@@ -25,6 +25,7 @@
  *  - Store the trailing message (if present, begins with ':')
  */
 struct ParsedCommand {
+  std::string prefix;
   std::string command;
   std::vector<std::string> params;
   std::string trailing;

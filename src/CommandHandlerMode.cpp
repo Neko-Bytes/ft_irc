@@ -26,9 +26,10 @@ void CommandHandler::handleMODE(Server *server, Client *client,
 
   const std::string target = cmd.params[0];
   const std::string modeStr = cmd.params.size() >= 2 ? cmd.params[1] : "";
+  std::string nick = client->getNickname();
 
   if (target.empty() || (target[0] != '#')) {
-    server->sendReply(client->getFd(), ERR_NOSUCHCHANNEL(target));
+    server->sendReply(client->getFd(), ERR_NOSUCHCHANNEL(nick, target));
     return;
   }
 
@@ -40,11 +41,11 @@ void CommandHandler::handleMODE(Server *server, Client *client,
   if (modeStr.empty())
     return replyActiveModes(server, *channel, *client);
   if (modeStr[0] != '+' && modeStr[0] != '-') {
-      server->sendReply(client->getFd(), ERR_UMODEUNKNOWNFLAG(client->getNickname()));
+      server->sendReply(client->getFd(), ERR_UMODEUNKNOWNFLAG(nick));
     return;
   }
   if (!channel->isOperator(client)) {
-    server->sendReply(client->getFd(), ERR_CHANOPRIVSNEEDED(chanName));
+    server->sendReply(client->getFd(), ERR_CHANOPRIVSNEEDED(nick, chanName));
     return;
   }
 
@@ -93,21 +94,22 @@ void CommandHandler::handleTOPIC(Server *server, Client *client,
     return;
 
   bool isSetting = cmd.hasTrailing || cmd.params.size() > 1;
+  std::string nick = client->getNickname();
 
   if (!isSetting) {
     const std::string &topic = channel->getTopic();
     if (topic.empty()) {
       server->sendReply(client->getFd(),
-                        RPL_NOTOPIC(client->getNickname(), chanName));
+                        RPL_NOTOPIC(nick, chanName));
     } else {
       server->sendReply(client->getFd(),
-                        RPL_TOPIC(client->getNickname(), chanName, topic));
+                        RPL_TOPIC(nick, chanName, topic));
     }
     return;
   }
 
   if (channel->isTopicProtected() && !channel->isOperator(client)) {
-    server->sendReply(client->getFd(), ERR_CHANOPRIVSNEEDED(chanName));
+    server->sendReply(client->getFd(), ERR_CHANOPRIVSNEEDED(nick, chanName));
     return;
   }
   std::string newTopic = cmd.hasTrailing ? cmd.trailing : cmd.params[1];

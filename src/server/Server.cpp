@@ -334,7 +334,7 @@ void Server::handleCommand(Client *client, const std::string &msg) {
 
   // Block everything else until registration is complete
   if (!alwaysAllowed && !client->isAuthenticated()) {
-    sendReply(client->getFd(), ERR_NOTREGISTERED);
+    sendReply(client->getFd(), ERR_NOTREGISTERED(client->getNickname()));
     return;
   }
 
@@ -371,7 +371,7 @@ void Server::handleCommand(Client *client, const std::string &msg) {
   else if (name == "QUIT")
     CommandHandler::handleQUIT(this, client, cmd);
   else
-    sendReply(client->getFd(), ERR_UNKNOWNCOMMAND(name));
+    sendReply(client->getFd(), ERR_UNKNOWNCOMMAND(client->getNickname(), name));
 }
 
 /* ============================= */
