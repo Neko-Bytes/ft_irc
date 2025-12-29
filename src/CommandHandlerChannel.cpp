@@ -24,24 +24,23 @@ void CommandHandler::handleINVITE(Server *server, Client *client,
   Channel *channel =
       expectChannel(server, client, cmd.params[1], "INVITE", true, true, true);
   if (!channel)
-  {
-    server->sendReply(client->getFd(), ERR_NOSUCHCHANNEL(cmd.params[1]));
     return;
-  }
 
   Client *target = resolveClientOrReply(server, client, targetNick);
   if (!target)
     return;
+  
+  std::string nick = client->getNickname();
   if (!channel->hasClient(client)) {
-    server->sendReply(client->getFd(), ERR_NOTONCHANNEL(channel->getName()));
+    server->sendReply(client->getFd(), ERR_NOTONCHANNEL(nick, channel->getName()));
     return;
   }
   if (channel->isInviteOnly() && !channel->isOperator(client)) {
-    server->sendReply(client->getFd(), ERR_CHANOPRIVSNEEDED(channel->getName()));
+    server->sendReply(client->getFd(), ERR_CHANOPRIVSNEEDED(nick, channel->getName()));
     return;
   }
   if (channel->hasClient(target)) {
-    server->sendReply(client->getFd(), ERR_USERONCHANNEL(targetNick, channel->getName()));
+    server->sendReply(client->getFd(), ERR_USERONCHANNEL(nick, targetNick, channel->getName()));
     return;
   }
   channel->inviteNickname(targetNick);
@@ -51,7 +50,7 @@ void CommandHandler::handleINVITE(Server *server, Client *client,
                           " " + channel->getName() + "\r\n";
   server->sendReply(target->getFd(), inviteMsg);
   server->sendReply(client->getFd(),
-                    RPL_INVITING(targetNick, channel->getName()));
+                    RPL_INVITING(nick, targetNick, channel->getName()));
 }
 
 /* ============================= */
@@ -79,8 +78,10 @@ void CommandHandler::handleJOIN(Server *server, Client *client,
   std::vector<std::string> keys;
   if (cmd.params.size() > 1)
     keys = splitCommaList(cmd.params[1]);
+  
+  std::string nick = client->getNickname();
   if (channels.empty()) {
-    server->sendReply(client->getFd(), ERR_NEEDMOREPARAMS("JOIN"));
+    server->sendReply(client->getFd(), ERR_NEEDMOREPARAMS(nick, "JOIN"));
     return;
   }
 
@@ -95,17 +96,17 @@ void CommandHandler::handleJOIN(Server *server, Client *client,
     std::string providedKey = idx < keys.size() ? keys[idx] : std::string();
     
     if (channel->hasKey() && providedKey != channel->getKey()) {
-      server->sendReply(client->getFd(), ERR_BADCHANNELKEY(chanName));
+      server->sendReply(client->getFd(), ERR_BADCHANNELKEY(nick, chanName));
       continue;
     }
     if (channel->isInviteOnly() && !channel->isInvited(client->getNickname()) &&
         !channel->isOperator(client)) {
-      server->sendReply(client->getFd(), ERR_INVITEONLYCHAN(chanName));
+      server->sendReply(client->getFd(), ERR_INVITEONLYCHAN(nick, chanName));
       continue;
     }
     if (channel->hasLimit() && channel->isFull() &&
         !channel->isOperator(client)) {
-      server->sendReply(client->getFd(), ERR_CHANNELISFULL(chanName));
+      server->sendReply(client->getFd(), ERR_CHANNELISFULL(nick, chanName));
       continue;
     }
 
@@ -123,19 +124,16 @@ void CommandHandler::handleJOIN(Server *server, Client *client,
       channel->broadcast(joinMsg, NULL);
     }
     const std::vector<Client *> &members = channel->getClients();
-    std::string names = ":ircserver 353 " + client->getNickname() + " = " +
-                        chanName + " :";
+    std::string names;
     for (size_t i = 0; i < members.size(); ++i) {
+      if (channel->isOperator(members[i]))
+        names += "@";
       names += members[i]->getNickname();
       if (i + 1 < members.size())
         names += " ";
     }
-    names += "\r\n";
-    server->sendReply(client->getFd(), names);
-
-    std::string endMsg = ":ircserver 366 " + client->getNickname() + " " 
-                          + chanName + " :End of NAMES list\r\n";
-    server->sendReply(client->getFd(), endMsg);
+    server->sendReply(client->getFd(), RPL_NAMREPLY(client->getNickname(), chanName, names));
+    server->sendReply(client->getFd(), RPL_ENDOFNAMES(client->getNickname(), chanName));
 
     const std::string &topic = channel->getTopic();
     if (!topic.empty()) {
@@ -143,6 +141,7 @@ void CommandHandler::handleJOIN(Server *server, Client *client,
     } else {
       server->sendReply(client->getFd(), RPL_NOTOPIC(client->getNickname(), chanName));
     }
+    replyActiveModes(server, *channel, *client);
   }
 }
 
@@ -171,14 +170,14 @@ void CommandHandler::handlePART(Server *server, Client *client,
   if (!channel)
     return;
 
+  std::string reason = cmd.hasTrailing ? (" :" + cmd.trailing) : "";
+  std::string partMsg = ":" + client->getNickname() + "!" +
+                        client->getUsername() + "@ircserv PART " +
+                        channel->getName() + reason + "\r\n";
+  channel->broadcast(partMsg, NULL);
+
   channel->removeClient(client);
   client->leaveChannel(channel);
-
-  std::string partMsg = ":" + client->getNickname() + "!" +
-                        client->getUsername() + "@localhost PART " +
-                        channel->getName() + "\r\n";
-
-  channel->broadcast(partMsg, NULL);
 
   server->cleanupChannel(channel->getName());
 }
@@ -213,17 +212,19 @@ void CommandHandler::handleKICK(Server *server, Client *client,
   Client *target = resolveClientOrReply(server, client, targetNick);
   if (!target)
     return;
+  
+  std::string nick = client->getNickname();
   if (!channel->hasClient(client)) {
-     server->sendReply(client->getFd(), ERR_NOTONCHANNEL(channel->getName()));
+     server->sendReply(client->getFd(), ERR_NOTONCHANNEL(nick, channel->getName()));
     return;
   }
   if (!channel->hasClient(target)) {
-    server->sendReply(client->getFd(), ERR_USERNOTINCHANNEL(targetNick, channel->getName()));
+    server->sendReply(client->getFd(), ERR_USERNOTINCHANNEL(nick, targetNick, channel->getName()));
     return;
   }
 
   std::string kickMsg = ":" + client->getNickname() + "!" +
-                        client->getUsername() + "@localhost KICK " +
+                        client->getUsername() + "@ircserv KICK " +
                         channel->getName() + " " + targetNick + "\r\n";
 
   channel->broadcast(kickMsg, NULL);

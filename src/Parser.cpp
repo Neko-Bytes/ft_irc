@@ -24,8 +24,13 @@ ParsedCommand Parser::parse(const std::string &line) {
   bool trailingFound = false;
 
   while (iss >> token) {
-    if (!trailingFound && token.size() > 0 && token[0] == ':') {
+    if (result.command.empty() && result.prefix.empty() && token[0] == ':') {
+      result.prefix = token.substr(1);
+    } else if (result.command.empty()) {
+      result.command = token;
+    } else if (!trailingFound && token[0] == ':') {
       trailingFound = true;
+      result.hasTrailing = true;
       result.trailing = token.substr(1);
 
       std::string rest;
@@ -33,8 +38,6 @@ ParsedCommand Parser::parse(const std::string &line) {
       if (!rest.empty() && rest[0] == ' ')
         rest.erase(0, 1);
       result.trailing += (rest.empty() ? "" : " " + rest);
-    } else if (result.command.empty()) {
-      result.command = token;
     } else if (!trailingFound) {
       result.params.push_back(token);
     }

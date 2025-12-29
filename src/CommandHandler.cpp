@@ -22,8 +22,24 @@
 #include "../includes/Replies.hpp"
 #include "../includes/Server.hpp"
 
+#include <set>
 #include <sstream>
 #include <sys/socket.h>
+
+static bool isValidNickname(const std::string &nick) {
+  if (nick.empty() || nick.length() > 32)
+    return false;
+  // special = ( [ \ ] ^ _ ` { | } )
+  std::string special = "[]\\`_^{|}";
+  if (!std::isalpha(nick[0]) && special.find(nick[0]) == std::string::npos)
+    return false;
+  for (size_t i = 1; i < nick.length(); ++i) {
+    if (!std::isalnum(nick[i]) && special.find(nick[i]) == std::string::npos &&
+        nick[i] != '-')
+      return false;
+  }
+  return true;
+}
 
 /* ============================= */
 /*       PASS COMMAND LOGIC      */
@@ -33,7 +49,8 @@ void CommandHandler::handlePASS(Server *server, Client *client,
                                 const ParsedCommand &cmd) {
   // No password argument
   if (cmd.params.empty()) {
-    server->sendReply(client->getFd(), ERR_NEEDMOREPARAMS("PASS"));
+    std::string nick = client->getNickname().empty() ? "*" : client->getNickname();
+    server->sendReply(client->getFd(), ERR_NEEDMOREPARAMS(nick, "PASS"));
     return;
   }
 
@@ -47,8 +64,8 @@ void CommandHandler::handlePASS(Server *server, Client *client,
 
   // Wrong password
   if (pass != server->getPassword()) {
-    server->sendReply(client->getFd(),
-                      ":ircserver 464 * :Password incorrect\r\n");
+    std::string nick = client->getNickname().empty() ? "*" : client->getNickname();
+    server->sendReply(client->getFd(), ERR_PASSWDMISMATCH(nick));
     return;
   }
 
@@ -62,25 +79,64 @@ void CommandHandler::handlePASS(Server *server, Client *client,
 
 void CommandHandler::handleNICK(Server *server, Client *client,
                                 const ParsedCommand &cmd) {
+  std::string currentNick = client->getNickname().empty() ? "*" : client->getNickname();
   // Check if pass has been entered first
   if (!client->hasValidPass()) {
-    server->sendReply(client->getFd(),
-                      ERR_PASSWDMISMATCH(client->getNickname().empty()
-                                             ? "*"
-                                             : client->getNickname()));
+    server->sendReply(client->getFd(), ERR_PASSWDMISMATCH(currentNick));
     return;
   }
 
   if (cmd.params.empty()) {
-    server->sendReply(client->getFd(), ERR_NONICKNAMEGIVEN);
+    server->sendReply(client->getFd(), ERR_NONICKNAMEGIVEN(currentNick));
     return;
   }
 
   const std::string &nick = cmd.params[0];
 
-  if (server->nicknameInUse(nick)) {
-    server->sendReply(client->getFd(), ERR_NICKNAMEINUSE(nick));
+  if (!isValidNickname(nick)) {
+    server->sendReply(client->getFd(), ERR_ERRONEUSNICKNAME(currentNick, nick));
     return;
+  }
+
+  const std::string oldNick = client->getNickname();
+  if (!oldNick.empty() && nick == oldNick)
+    return;
+
+  if (server->nicknameInUse(nick)) {
+    server->sendReply(client->getFd(), ERR_NICKNAMEINUSE(currentNick, nick));
+    return;
+  }
+
+  if (client->isAuthenticated() && !oldNick.empty()) {
+    const std::string nickMsg = ":" + oldNick + "!" + client->getUsername() +
+                               "@ircserv.42 NICK " + nick + "\r\n";
+
+    std::set<int> sentFds;
+    const std::vector<Channel *> &joined = client->getJoinedChannels();
+    for (size_t i = 0; i < joined.size(); ++i) {
+      Channel *ch = joined[i];
+      const std::vector<Client *> &members = ch->getClients();
+      for (size_t j = 0; j < members.size(); ++j) {
+        Client *dst = members[j];
+        if (dst == client)
+          continue;
+        if (sentFds.insert(dst->getFd()).second)
+          server->sendReply(dst->getFd(), nickMsg);
+      }
+    }
+
+    server->sendReply(client->getFd(), nickMsg);
+
+    for (std::map<std::string, Channel *>::iterator it = server->_channels.begin();
+         it != server->_channels.end(); ++it) {
+      Channel *channel = it->second;
+      if (!channel)
+        continue;
+      if (channel->isInvited(oldNick)) {
+        channel->removeInvited(oldNick);
+        channel->inviteNickname(nick);
+      }
+    }
   }
 
   client->setNickname(nick);
@@ -93,27 +149,28 @@ void CommandHandler::handleNICK(Server *server, Client *client,
 
 void CommandHandler::handleUSER(Server *server, Client *client,
                                 const ParsedCommand &cmd) {
+  std::string nick = client->getNickname().empty() ? "*" : client->getNickname();
   // Check if pass has been entered first
   if (!client->hasValidPass()) {
-    server->sendReply(client->getFd(),
-                      ERR_PASSWDMISMATCH(client->getNickname().empty()
-                                             ? "*"
-                                             : client->getNickname()));
+    server->sendReply(client->getFd(), ERR_PASSWDMISMATCH(nick));
     return;
   }
 
   if (cmd.params.size() < 3 || cmd.trailing.empty()) {
-    server->sendReply(client->getFd(), ERR_NEEDMOREPARAMS("USER"));
+    server->sendReply(client->getFd(), ERR_NEEDMOREPARAMS(nick, "USER"));
     return;
   }
 
   if (client->isAuthenticated()) {
-    server->sendReply(client->getFd(),
-                      ERR_ALREADYREGISTRED(client->getNickname()));
+    server->sendReply(client->getFd(), ERR_ALREADYREGISTRED(nick));
     return;
   }
 
-  client->setUsername(cmd.params[0]);
+  std::string username = cmd.params[0];
+  if (username.length() > 16)
+    username = username.substr(0, 16);
+
+  client->setUsername(username);
   client->setRealname(cmd.trailing);
 
   server->tryRegister(client);
@@ -129,19 +186,17 @@ void CommandHandler::handleUSER(Server *server, Client *client,
  */
 void CommandHandler::handleQUIT(Server *server, Client *client,
                                 const ParsedCommand &cmd) {
-  (void)cmd;
-
+  std::string reason = cmd.hasTrailing ? cmd.trailing : "Quit";
   std::string quitMsg = ":" + client->getNickname() + "!" +
-                        client->getUsername() + "@localhost QUIT :Quit\r\n";
+                        client->getUsername() + "@ircserv.42 QUIT :" + reason +
+                        "\r\n";
 
   const std::vector<Channel *> &joined = client->getJoinedChannels();
 
-  // Broadcast QUIT and remove client from all channels
+  // Broadcast QUIT
   for (size_t i = 0; i < joined.size(); i++) {
     Channel *ch = joined[i];
     ch->broadcast(quitMsg, client);
-    ch->removeClient(client);
-    server->cleanupChannel(ch->getName());
   }
   server->removeClient(client->getFd());
 }
@@ -161,48 +216,38 @@ void CommandHandler::handleQUIT(Server *server, Client *client,
  */
 void CommandHandler::handlePRIVMSG(Server *server, Client *client,
                                    const ParsedCommand &cmd) {
+  std::string nick = client->getNickname();
   // No target given
   if (cmd.params.empty()) {
-    server->sendReply(client->getFd(),
-                      ":ircserver 411 :No recipient given (PRIVMSG)\r\n");
+    server->sendReply(client->getFd(), ERR_NORECIPIENT(nick, "PRIVMSG"));
     return;
   }
 
   std::string target = cmd.params[0];
   std::string text = cmd.trailing;
 
-  // Allows msgs without colon. Ex: "PRIVMSG user hello world"
-  // i = 1 to skip "user"
-  // if (text.empty() && cmd.params.size() > 1) {
-  //   for (size_t i = 1; i < cmd.params.size(); ++i) {
-  //     if (i > 1)
-  //       text += " ";
-  //     text += cmd.params[i];
-  //   }
-  // }
-
   // No text to send
   if (text.empty()) {
-    server->sendReply(client->getFd(), ":ircserver 412 :No text to send\r\n");
+    server->sendReply(client->getFd(), ERR_NOTEXTTOSEND(nick));
     return;
   }
 
   /* ===== CHANNEL MESSAGE ===== */
   if (!target.empty() && target[0] == '#') {
     if (!server->_channels.count(target)) {
-      server->sendReply(client->getFd(), ERR_NOSUCHCHANNEL(target));
+      server->sendReply(client->getFd(), ERR_NOSUCHCHANNEL(nick, target));
       return;
     }
 
     Channel *channel = server->_channels[target];
 
     if (!channel->hasClient(client)) {
-      server->sendReply(client->getFd(), ERR_CANNOTSENDTOCHAN(target));
+      server->sendReply(client->getFd(), ERR_CANNOTSENDTOCHAN(nick, target));
       return;
     }
 
     std::string msg = ":" + client->getNickname() + "!" +
-                      client->getUsername() + "@localhost PRIVMSG " + target +
+                      client->getUsername() + "@ircserv.42 PRIVMSG " + target +
                       " :" + text + "\r\n";
 
     channel->broadcast(msg, client);
@@ -212,13 +257,43 @@ void CommandHandler::handlePRIVMSG(Server *server, Client *client,
   /* ===== DIRECT MESSAGE ===== */
   Client *receiver = server->getClientByNick(target);
   if (!receiver) {
-    server->sendReply(client->getFd(), ERR_NOSUCHNICK(target));
+    server->sendReply(client->getFd(), ERR_NOSUCHNICK(nick, target));
     return;
   }
 
   std::string msg = ":" + client->getNickname() + "!" + client->getUsername() +
-                    "@localhost PRIVMSG " + target + " :" + text + "\r\n";
+                    "@ircserv.42 PRIVMSG " + target + " :" + text + "\r\n";
 
+  server->sendReply(receiver->getFd(), msg);
+}
+
+/* ============================= */
+/*            NOTICE             */
+/* ============================= */
+
+void CommandHandler::handleNOTICE(Server *server, Client *client,
+                                  const ParsedCommand &cmd) {
+  if (cmd.params.empty())
+    return;
+
+  std::string target = cmd.params[0];
+  std::string text = cmd.trailing;
+  if (text.empty())
+    return;
+  std::string msg = ":" + client->getNickname() + "!" + client->getUsername() + 
+                    "@ircserv.42 NOTICE " + target + " :" + text + "\r\n";
+  if (!target.empty() && target[0] == '#') {
+    if (!server->_channels.count(target))
+      return;
+    Channel *channel = server->_channels[target];
+    if (!channel->hasClient(client))
+      return;
+    channel->broadcast(msg, client);
+    return;
+  }
+  Client *receiver = server->getClientByNick(target);
+  if (!receiver)
+    return;
   server->sendReply(receiver->getFd(), msg);
 }
 
@@ -229,7 +304,8 @@ void CommandHandler::handlePRIVMSG(Server *server, Client *client,
 void CommandHandler::handlePING(Server *server, Client *client,
                                 const ParsedCommand &cmd) {
   if (cmd.params.empty()) {
-    server->sendReply(client->getFd(), ERR_NEEDMOREPARAMS("PING"));
+    std::string nick = client->getNickname().empty() ? "*" : client->getNickname();
+    server->sendReply(client->getFd(), ERR_NEEDMOREPARAMS(nick, "PING"));
     return;
   }
 
@@ -259,8 +335,9 @@ void CommandHandler::handleWHOIS(Server *server, Client *client,
     return;
 
   server->sendReply(client->getFd(),
-                    RPL_WHOISUSER(target->getNickname(), target->getUsername(),
-                                  "localhost", target->getRealname()));
+                    RPL_WHOISUSER(client->getNickname(), target->getNickname(),
+                                  target->getUsername(), "ircserv.42",
+                                  target->getRealname()));
 
   std::string chanList;
   const std::vector<Channel *> &joinedChannels = target->getJoinedChannels();
@@ -272,8 +349,52 @@ void CommandHandler::handleWHOIS(Server *server, Client *client,
 
   // Reply with WHOISCHANNELS
   server->sendReply(client->getFd(),
-                    RPL_WHOISCHANNELS(target->getNickname(), chanList));
+                    RPL_WHOISCHANNELS(client->getNickname(),
+                                      target->getNickname(), chanList));
 
   // End of WHOIS
-  server->sendReply(client->getFd(), RPL_ENDOFWHOIS(target->getNickname()));
+  server->sendReply(client->getFd(),
+                    RPL_ENDOFWHOIS(client->getNickname(),
+                                   target->getNickname()));
+}
+
+/* ============================= */
+/*             WHO               */
+/* ============================= */
+
+void CommandHandler::handleWHO(Server *server, Client *client,
+                               const ParsedCommand &cmd) {
+  if (!requireParams(server, client, cmd, 1, "WHO"))
+    return;
+
+  const std::string &mask = cmd.params[0];
+  std::string nick = client->getNickname();
+  if (!mask.empty() && mask[0] == '#') {
+    if (!server->_channels.count(mask)) {
+      server->sendReply(client->getFd(), ERR_NOSUCHCHANNEL(nick, mask));
+      return;
+    }
+    Channel *channel = server->_channels[mask];
+    const std::vector<Client *> &members = channel->getClients();
+    for (size_t i = 0; i < members.size(); ++i) {
+      Client *entry = members[i];
+      server->sendReply(client->getFd(), RPL_WHOREPLY(nick, channel->getName(),
+                        entry->getUsername(), "ircserv.42", "ircserv.42", entry->getNickname(), "H", entry->getRealname()));
+    }
+  } else {
+    Client *target = server->getClientByNick(mask);
+    if (!target) {
+      server->sendReply(client->getFd(), ERR_NOSUCHNICK(nick, mask));
+      return;
+    }
+    std::string chanName = "*";
+    const std::vector<Channel *> &joined = target->getJoinedChannels();
+    if (!joined.empty())
+      chanName = joined[0]->getName();
+    server->sendReply(
+        client->getFd(),
+        RPL_WHOREPLY(nick, chanName, target->getUsername(),
+                      "ircserv.42", "ircserv.42", target->getNickname(), "H", target->getRealname()));
+  }
+  server->sendReply(client->getFd(), RPL_ENDOFWHO(nick, mask));
 }
