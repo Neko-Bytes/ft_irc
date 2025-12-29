@@ -60,6 +60,9 @@ bool Server::handleClientRead(int index) {
 
   int bytes = recv(fd, buffer, sizeof(buffer), 0);
   if (bytes <= 0) {
+    if (bytes < 0 &&
+        (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR))
+      return true;
     removeClient(fd);
     return (false);
   }
