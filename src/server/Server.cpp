@@ -200,6 +200,9 @@ void Server::mainLoop() {
     if (poll(_pollfds.data(), _pollfds.size(), -1) < 0) {
       if (_signal)
         break;
+      // Handles signals such as "Suspend" or "resize" which aren't errors
+      if (errno == EINTR)
+        continue;
       throw std::runtime_error("poll() failed");
     }
 
@@ -215,6 +218,13 @@ void Server::mainLoop() {
         if (_clients.count(_pollfds[i].fd)) {
           Client *client = _clients[fd];
 
+          // Check for Hangup (POLLHUP) or Socket Error (POLLERR)
+          // If these flags are set, the client is dead. Remove immediately.
+          if (_pollfds[i].revents & (POLLERR | POLLHUP)) {
+            removeClient(fd);
+            continue;
+          }
+
           // READ (Incoming)
           if (_pollfds[i].revents & POLLIN) {
             if (!handleClientRead(i)) {
@@ -229,6 +239,17 @@ void Server::mainLoop() {
             ssize_t sent = send(fd, msg.c_str(), msg.size(), 0);
             if (sent > 0)
               client->consumeBytes(sent);
+            else if (sent < 0) {
+              // If error is "Try again later", just break and try next loop
+              if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                // Sometimes the OS buffer is full or the WIFI is too slow and
+                // hence send() will return -1 which is not a fatal error. So we
+                // do nothing and keep data in buffer for next time.
+              } else {
+                // Real error, disconnect client
+                removeClient(fd);
+              }
+            }
           }
         }
       }
