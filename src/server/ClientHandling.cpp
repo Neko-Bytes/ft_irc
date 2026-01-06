@@ -66,6 +66,10 @@ bool Server::handleClientRead(int index) {
 
   Client *c = _clients[fd];
   c->appendToBuffer(std::string(buffer, bytes));
+  if (c->hasInputOverflow()) {
+    removeClient(fd);
+    return (false);
+  }
 
   std::vector<std::string> msgs = extractMessages(c);
   for (size_t i = 0; i < msgs.size(); i++) {

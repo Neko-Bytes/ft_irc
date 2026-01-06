@@ -109,7 +109,7 @@ void CommandHandler::handleNICK(Server *server, Client *client,
 
   if (client->isAuthenticated() && !oldNick.empty()) {
     const std::string nickMsg = ":" + oldNick + "!" + client->getUsername() +
-                               "@ircserv.42 NICK " + nick + "\r\n";
+                               "@ircserv NICK " + nick + "\r\n";
 
     std::set<int> sentFds;
     const std::vector<Channel *> &joined = client->getJoinedChannels();
@@ -188,7 +188,7 @@ void CommandHandler::handleQUIT(Server *server, Client *client,
                                 const ParsedCommand &cmd) {
   std::string reason = cmd.hasTrailing ? cmd.trailing : "Quit";
   std::string quitMsg = ":" + client->getNickname() + "!" +
-                        client->getUsername() + "@ircserv.42 QUIT :" + reason +
+                        client->getUsername() + "@ircserv QUIT :" + reason +
                         "\r\n";
 
   const std::vector<Channel *> &joined = client->getJoinedChannels();
@@ -247,7 +247,7 @@ void CommandHandler::handlePRIVMSG(Server *server, Client *client,
     }
 
     std::string msg = ":" + client->getNickname() + "!" +
-                      client->getUsername() + "@ircserv.42 PRIVMSG " + target +
+                      client->getUsername() + "@ircserv PRIVMSG " + target +
                       " :" + text + "\r\n";
 
     channel->broadcast(msg, client);
@@ -262,7 +262,7 @@ void CommandHandler::handlePRIVMSG(Server *server, Client *client,
   }
 
   std::string msg = ":" + client->getNickname() + "!" + client->getUsername() +
-                    "@ircserv.42 PRIVMSG " + target + " :" + text + "\r\n";
+                    "@ircserv PRIVMSG " + target + " :" + text + "\r\n";
 
   server->sendReply(receiver->getFd(), msg);
 }
@@ -281,7 +281,7 @@ void CommandHandler::handleNOTICE(Server *server, Client *client,
   if (text.empty())
     return;
   std::string msg = ":" + client->getNickname() + "!" + client->getUsername() + 
-                    "@ircserv.42 NOTICE " + target + " :" + text + "\r\n";
+                    "@ircserv NOTICE " + target + " :" + text + "\r\n";
   if (!target.empty() && target[0] == '#') {
     if (!server->_channels.count(target))
       return;
@@ -336,7 +336,7 @@ void CommandHandler::handleWHOIS(Server *server, Client *client,
 
   server->sendReply(client->getFd(),
                     RPL_WHOISUSER(client->getNickname(), target->getNickname(),
-                                  target->getUsername(), "ircserv.42",
+                                  target->getUsername(), "ircserv",
                                   target->getRealname()));
 
   std::string chanList;
@@ -379,7 +379,7 @@ void CommandHandler::handleWHO(Server *server, Client *client,
     for (size_t i = 0; i < members.size(); ++i) {
       Client *entry = members[i];
       server->sendReply(client->getFd(), RPL_WHOREPLY(nick, channel->getName(),
-                        entry->getUsername(), "ircserv.42", "ircserv.42", entry->getNickname(), "H", entry->getRealname()));
+                        entry->getUsername(), "ircserv", "ircserv", entry->getNickname(), "H", entry->getRealname()));
     }
   } else {
     Client *target = server->getClientByNick(mask);
@@ -394,7 +394,7 @@ void CommandHandler::handleWHO(Server *server, Client *client,
     server->sendReply(
         client->getFd(),
         RPL_WHOREPLY(nick, chanName, target->getUsername(),
-                      "ircserv.42", "ircserv.42", target->getNickname(), "H", target->getRealname()));
+              "ircserv", "ircserv", target->getNickname(), "H", target->getRealname()));
   }
   server->sendReply(client->getFd(), RPL_ENDOFWHO(nick, mask));
 }

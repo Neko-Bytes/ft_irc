@@ -19,13 +19,17 @@
 #include "../includes/Channel.hpp"
 #include <algorithm>
 
+static const size_t MaxIrcLineBytes = 512;      // with CRLF
+static const size_t MaxIrcPayloadBytes = 510;   // without CRLF
+static const size_t MaxInputBufferBytes = 64 * 1024; // max capacity of input buffer
+
 /**
  * @brief Constructs a Client instance for the given socket fd.
  * Initializes nickname, username, buffer, and authentication state.
  */
 
 Client::Client(int fd)
-    : _fd(fd), _nickname(""), _username(""), _realname(""), _authenticated(false), _hasValidPass(false), _buffer(""), _outputBufferSize(0), _outputBuffer() {}
+  : _fd(fd), _nickname(""), _username(""), _realname(""), _authenticated(false), _hasValidPass(false), _buffer(""), _inputOverflow(false), _outputBufferSize(0), _outputBuffer() {}
 /**
  * @brief Destructor. No special cleanup required here.
  * Channel removal and server-side cleanup is handled by Server.
@@ -46,6 +50,7 @@ std::string &Client::getBufferRef() { return _buffer; }
 bool Client::hasValidPass() const { return _hasValidPass; }
 const std::deque<std::string> &Client::getoutputBuffer() const { return _outputBuffer; }
 size_t Client::getOutputBufferSize() const { return _outputBufferSize; }
+bool Client::hasInputOverflow() const { return _inputOverflow; }
 
 /* ============================= */
 /*           SETTERS             */
@@ -65,7 +70,21 @@ void Client::setValidPass(bool status) { _hasValidPass = status; }
  * @brief Appends raw incoming data to the client's buffer.
  * Used to accumulate partial TCP fragments until a full IRC command is formed.
  */
-void Client::appendToBuffer(const std::string &data) { _buffer += data; }
+void Client::appendToBuffer(const std::string &data) {
+  if (data.empty() || _inputOverflow)
+    return;
+  if (_buffer.size() >= MaxInputBufferBytes) {
+    _inputOverflow = true;
+    return;
+  }
+  const size_t spaceLeft = MaxInputBufferBytes - _buffer.size();
+  if (data.size() > spaceLeft) {
+    _buffer.append(data, 0, spaceLeft);
+    _inputOverflow = true;
+    return;
+  }
+  _buffer += data;
+}
 
 /**
  * @brief Clears the buffer once all complete IRC commands have been processed.
@@ -78,8 +97,20 @@ void Client::clearBuffer() { _buffer.clear(); }
 void Client::queueMessage(const std::string &data) {
   if (data.empty())
     return;
-  _outputBuffer.push_back(data);
-  _outputBufferSize += data.size();
+
+  // cut off at 512 bytes and add \r\n
+  std::string line = data;
+  size_t cut = line.find_first_of("\r\n");
+  if (cut != std::string::npos)
+    line.erase(cut);
+  if (line.size() > MaxIrcPayloadBytes)
+    line.erase(MaxIrcPayloadBytes);
+  line += "\r\n";
+  if (line.size() > MaxIrcLineBytes)
+    line.erase(MaxIrcLineBytes);
+
+  _outputBuffer.push_back(line);
+  _outputBufferSize += line.size();
 }
 /**
  * @brief Checks if there are pending messages to send.

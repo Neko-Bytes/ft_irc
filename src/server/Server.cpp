@@ -459,8 +459,7 @@ void Server::sendReply(int fd, const std::string &msg) {
     queueMessage(it->second, msg);
     return;
   }
-  // Fallback for early replies before a Client object is tracked
-  send(fd, msg.c_str(), msg.size(), MSG_NOSIGNAL);
+  Logger::error("Server", "Attempted to send message to unknown fd " + std::to_string(fd));
 }
 
 /**
