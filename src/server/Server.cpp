@@ -241,7 +241,7 @@ void Server::mainLoop() {
               client->consumeBytes(sent);
             else if (sent < 0) {
               // If error is "Try again later", just break and try next loop
-              if (errno == EAGAIN || errno == EWOULDBLOCK) {
+              if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
                 // Sometimes the OS buffer is full or the WIFI is too slow and
                 // hence send() will return -1 which is not a fatal error. So we
                 // do nothing and keep data in buffer for next time.
