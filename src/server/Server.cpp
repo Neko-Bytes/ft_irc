@@ -207,7 +207,8 @@ void Server::mainLoop() {
     }
 
     // === PHASE 3: PROCESS ===
-    for (size_t i = 0; i < _pollfds.size(); i++) {
+    size_t i = 0;
+    while (i < _pollfds.size()) {
       // 1. Listener
       if (_pollfds[i].fd == _listenFd && (_pollfds[i].revents & POLLIN)) {
         acceptNewClient();
@@ -228,7 +229,7 @@ void Server::mainLoop() {
           // READ (Incoming)
           if (_pollfds[i].revents & POLLIN) {
             if (!handleClientRead(i)) {
-              --i;      // Client removed, stay at this index
+              // Client removed, stay at this index
               continue; // Don't try to write to a dead client
             }
           }
@@ -248,11 +249,13 @@ void Server::mainLoop() {
               } else {
                 // Real error, disconnect client
                 removeClient(fd);
+                continue;
               }
             }
           }
         }
       }
+      i++;
     }
   }
 }
@@ -459,7 +462,8 @@ void Server::sendReply(int fd, const std::string &msg) {
     queueMessage(it->second, msg);
     return;
   }
-  Logger::error("Server", "Attempted to send message to unknown fd " + std::to_string(fd));
+  Logger::error("Server", "Attempted to send message to unknown fd " +
+                              std::to_string(fd));
 }
 
 /**
