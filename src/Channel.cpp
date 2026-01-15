@@ -87,6 +87,10 @@ void Channel::removeClient(Client *client) {
 
   removeOperator(client);
   removeInvited(client->getNickname());
+
+  // if no operators remain but the channel still has members, promote the first remaining member
+  if (_operators.empty() && !_clients.empty())
+    addOperator(_clients[0]);
 }
 
 void Channel::inviteNickname(const std::string &nickname) {

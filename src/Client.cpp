@@ -17,11 +17,8 @@
 
 #include "../includes/Client.hpp"
 #include "../includes/Channel.hpp"
+#include "../includes/Constants.hpp"
 #include <algorithm>
-
-static const size_t MaxIrcLineBytes = 512;      // with CRLF
-static const size_t MaxIrcPayloadBytes = 510;   // without CRLF
-static const size_t MaxInputBufferBytes = 64 * 1024; // max capacity of input buffer
 
 /**
  * @brief Constructs a Client instance for the given socket fd.
@@ -29,7 +26,7 @@ static const size_t MaxInputBufferBytes = 64 * 1024; // max capacity of input bu
  */
 
 Client::Client(int fd)
-  : _fd(fd), _nickname(""), _username(""), _realname(""), _authenticated(false), _hasValidPass(false), _buffer(""), _inputOverflow(false), _outputBufferSize(0), _outputBuffer() {}
+  : _fd(fd), _nickname(""), _username(""), _realname(""), _authenticated(false), _hasValidPass(false), _buffer(""), _inputOverflow(false), _outputBufferSize(0), _outputBuffer(), _outputOffset(0) {}
 /**
  * @brief Destructor. No special cleanup required here.
  * Channel removal and server-side cleanup is handled by Server.
@@ -51,6 +48,7 @@ bool Client::hasValidPass() const { return _hasValidPass; }
 const std::deque<std::string> &Client::getoutputBuffer() const { return _outputBuffer; }
 size_t Client::getOutputBufferSize() const { return _outputBufferSize; }
 bool Client::hasInputOverflow() const { return _inputOverflow; }
+size_t Client::getOutputOffset() const { return _outputOffset; }
 
 /* ============================= */
 /*           SETTERS             */
@@ -73,11 +71,11 @@ void Client::setValidPass(bool status) { _hasValidPass = status; }
 void Client::appendToBuffer(const std::string &data) {
   if (data.empty() || _inputOverflow)
     return;
-  if (_buffer.size() >= MaxInputBufferBytes) {
+  if (_buffer.size() >= IRC::MaxInputBufferBytes) {
     _inputOverflow = true;
     return;
   }
-  const size_t spaceLeft = MaxInputBufferBytes - _buffer.size();
+  const size_t spaceLeft = IRC::MaxInputBufferBytes - _buffer.size();
   if (data.size() > spaceLeft) {
     _buffer.append(data, 0, spaceLeft);
     _inputOverflow = true;
@@ -103,11 +101,13 @@ void Client::queueMessage(const std::string &data) {
   size_t cut = line.find_first_of("\r\n");
   if (cut != std::string::npos)
     line.erase(cut);
-  if (line.size() > MaxIrcPayloadBytes)
-    line.erase(MaxIrcPayloadBytes);
+  if (line.size() > IRC::MaxIrcPayloadBytes)
+    line.erase(IRC::MaxIrcPayloadBytes);
   line += "\r\n";
-  if (line.size() > MaxIrcLineBytes)
-    line.erase(MaxIrcLineBytes);
+  if (line.size() > IRC::MaxIrcLineBytes)
+    line.erase(IRC::MaxIrcLineBytes);
+  if (_outputBufferSize + line.size() > IRC::MaxOutputBufferBytes)
+    return;
 
   _outputBuffer.push_back(line);
   _outputBufferSize += line.size();
@@ -123,6 +123,7 @@ bool Client::hasPendingSend() const { return !_outputBuffer.empty(); }
 void Client::clearOutputBuffer() {
   _outputBuffer.clear();
   _outputBufferSize = 0;
+  _outputOffset = 0;
 }
 
 /**
@@ -132,7 +133,10 @@ void Client::clearOutputBuffer() {
 std::string Client::peekOutputBuffer() const {
   if (_outputBuffer.empty())
     return "";
-  return _outputBuffer.front();
+  const std::string &front = _outputBuffer.front();
+  if (_outputOffset >= front.size())
+    return "";
+  return front.substr(_outputOffset);
 }
 /**
  * @brief Peeks at the message at a specific offset in the output buffer.
@@ -152,12 +156,20 @@ void Client::consumeBytes(size_t bytes) {
 
   while (localBytes > 0 && !_outputBuffer.empty()) {
     std::string &front = _outputBuffer.front();
-    if (front.size() <= localBytes) {
-      localBytes -= front.size();
-      _outputBufferSize -= front.size();
+    if (_outputOffset >= front.size()) {
+      _outputOffset = 0;
       _outputBuffer.pop_front();
+      continue;
+    }
+
+    const size_t remaining = front.size() - _outputOffset;
+    if (remaining <= localBytes) {
+      localBytes -= remaining;
+      _outputBufferSize -= remaining;
+      _outputBuffer.pop_front();
+      _outputOffset = 0;
     } else {
-      front.erase(0, localBytes);
+      _outputOffset += localBytes;
       _outputBufferSize -= localBytes;
       localBytes = 0;
     }
