@@ -53,6 +53,9 @@
 #define ERR_PASSWDMISMATCH(nick)                                               \
   (std::string(":ircserv 464 ") + (nick) + " :Password incorrect\r\n")
 
+#define ERR_NOMOTD(nick)                                               \
+  (std::string(":ircserv 422 ") + (nick) + " :MOTD File is missing\r\n")
+
 /* ============================= */
 /*    CHANNEL ERROR NUMERICS     */
 /* ============================= */
@@ -121,6 +124,15 @@
 
 #define RPL_WELCOME(nick)                                                      \
   (std::string(":ircserv 001 ") + (nick) + " :Welcome to the IRC server!\r\n")
+
+#define RPL_YOURHOST(nick)                                                      \
+  (std::string(":ircserv 002 ") + (nick) + " :Your host is ircserv, running version 0.42\r\n")
+
+#define RPL_CREATED(nick, datetime)                                                      \
+  (std::string(":ircserv 003 ") + (nick) + " :this server was created " + datetime + "\r\n")
+
+#define RPL_MYINFO(nick)                                                      \
+  (std::string(":ircserv 004 ") + (nick) + " ircserv 0.42 - kilot kol\r\n")
 
 #define RPL_NAMREPLY(nick, chan, names)                                        \
   (std::string(":ircserv 353 ") + (nick) + " = " + (chan) + " :" + (names) + \

@@ -71,7 +71,7 @@ void Server::signalHandler(int signum) {
  * @brief Constructs the Server object with the given port and password.
  */
 Server::Server(const std::string &port, const std::string &password)
-    : _port(port), _password(password), _listenFd(-1) {}
+    : _port(port), _password(password), _listenFd(-1), datetime(std::string(__DATE__) + " " + __TIME__) {}
 
 /**
  * @brief Destructor cleans all client and channel maps and closes the server
@@ -425,6 +425,10 @@ bool Server::isClientFullyRegistered(Client *client) const {
  */
 void Server::sendWelcome(Client *client) {
   sendReply(client->getFd(), RPL_WELCOME(client->getNickname()));
+  sendReply(client->getFd(), RPL_YOURHOST(client->getNickname()));
+  sendReply(client->getFd(), RPL_CREATED(client->getNickname(), datetime));
+  sendReply(client->getFd(), RPL_MYINFO(client->getNickname()));
+  sendReply(client->getFd(), ERR_NOMOTD(client->getNickname()));
 }
 
 /**

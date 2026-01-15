@@ -78,6 +78,8 @@ private:
   std::map<int, Client *> _clients;
   std::map<std::string, Channel *> _channels;
 
+  std::string datetime;
+
   /* =============================
    *      CORE SERVER LOGIC
    * ============================= */
