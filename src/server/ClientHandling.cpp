@@ -19,6 +19,7 @@
 #include "../../includes/CommandHandler.hpp"
 #include "../../includes/Parser.hpp"
 #include "../../includes/Server.hpp"
+#include "../../includes/Constants.hpp"
 
 #include <vector>
 
@@ -56,7 +57,7 @@ void Server::acceptNewClient() {
  */
 bool Server::handleClientRead(int index) {
   int fd = _pollfds[index].fd;
-  char buffer[1024];
+  char buffer[IRC::ReadBufferBytes];
 
   int bytes = recv(fd, buffer, sizeof(buffer), 0);
   if (bytes <= 0) {
@@ -69,6 +70,10 @@ bool Server::handleClientRead(int index) {
 
   Client *c = _clients[fd];
   c->appendToBuffer(std::string(buffer, bytes));
+  if (c->hasInputOverflow()) {
+    removeClient(fd);
+    return (false);
+  }
 
   std::vector<std::string> msgs = extractMessages(c);
   for (size_t i = 0; i < msgs.size(); i++) {

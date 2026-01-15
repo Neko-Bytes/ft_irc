@@ -37,6 +37,8 @@ public:
   bool hasValidPass() const;
   const std::deque<std::string> &getoutputBuffer() const;
   size_t getOutputBufferSize() const;
+  bool hasInputOverflow() const;
+  size_t getOutputOffset() const;
 
   // Setters
   void setNickname(const std::string &nick);
@@ -87,8 +89,10 @@ private:
   bool _hasValidPass;
 
   std::string _buffer;            // stores partial packets
+  bool _inputOverflow;
   size_t _outputBufferSize; // total size of _outputBuffer
   std::deque<std::string> _outputBuffer;         // stores outgoing messages
+  size_t _outputOffset; // how many bytes already sent from _outputBuffer.front()
   std::vector<Channel *> _joined; // channels the client is in
 };
 
