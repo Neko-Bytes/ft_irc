@@ -351,7 +351,8 @@ void Server::handleCommand(Client *client, const std::string &msg) {
 
   // Commands that are allowed even if the client is not fully registered
   bool alwaysAllowed = (name == "PASS" || name == "NICK" || name == "USER" ||
-                        name == "PING" || name == "PONG" || name == "QUIT");
+                        name == "PING" || name == "PONG" || name == "QUIT" ||
+                        name == "CAP");
 
   // Block everything else until registration is complete
   if (!alwaysAllowed && !client->isAuthenticated()) {
@@ -389,6 +390,8 @@ void Server::handleCommand(Client *client, const std::string &msg) {
     CommandHandler::handleINVITE(this, client, cmd);
   else if (name == "WHOIS")
     CommandHandler::handleWHOIS(this, client, cmd);
+  else if (name == "CAP")
+    CommandHandler::handleCAP(this, client, cmd);
   else if (name == "QUIT")
     CommandHandler::handleQUIT(this, client, cmd);
   else
@@ -428,6 +431,7 @@ void Server::sendWelcome(Client *client) {
   sendReply(client->getFd(), RPL_YOURHOST(client->getNickname()));
   sendReply(client->getFd(), RPL_CREATED(client->getNickname(), datetime));
   sendReply(client->getFd(), RPL_MYINFO(client->getNickname()));
+  sendReply(client->getFd(), RPL_ISUPPORT(client->getNickname()));
   sendReply(client->getFd(), ERR_NOMOTD(client->getNickname()));
 }
 

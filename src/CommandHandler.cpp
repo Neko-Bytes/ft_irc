@@ -177,6 +177,29 @@ void CommandHandler::handleUSER(Server *server, Client *client,
 }
 
 /* ============================= */
+/*        CAP COMMAND LOGIC      */
+/* ============================= */
+
+void CommandHandler::handleCAP(Server *server, Client *client,
+                               const ParsedCommand &cmd) {
+  (void)server;
+  // minimal CAP handling for clients
+
+  if (cmd.params.empty())
+    return;
+
+  std::string sub = cmd.params[0];
+  for (size_t i = 0; i < sub.size(); ++i)
+    sub[i] = static_cast<char>(std::toupper(static_cast<unsigned char>(sub[i])));
+
+  if (sub == "LS") {
+    std::string target = client->getNickname().empty() ? "*" : client->getNickname();
+    // Empty caps list: trailing ':' with nothing following.
+    server->sendReply(client->getFd(), std::string(":ircserv CAP ") + target + " LS :\r\n");
+  }
+}
+
+/* ============================= */
 /*        QUIT COMMAND LOGIC     */
 /* ============================= */
 

@@ -126,13 +126,19 @@
   (std::string(":ircserv 001 ") + (nick) + " :Welcome to the IRC server!\r\n")
 
 #define RPL_YOURHOST(nick)                                                      \
-  (std::string(":ircserv 002 ") + (nick) + " :Your host is ircserv, running version 0.42\r\n")
+  (std::string(":ircserv 002 ") + (nick) +                                      \
+   " :Your host is ircserv, running version 0.42\r\n")
 
-#define RPL_CREATED(nick, datetime)                                                      \
-  (std::string(":ircserv 003 ") + (nick) + " :this server was created " + datetime + "\r\n")
+#define RPL_CREATED(nick, datetime)                                              \
+  (std::string(":ircserv 003 ") + (nick) + " :this server was created " +        \
+   datetime + "\r\n")
 
 #define RPL_MYINFO(nick)                                                      \
   (std::string(":ircserv 004 ") + (nick) + " ircserv 0.42 - kilot kol\r\n")
+
+#define RPL_ISUPPORT(nick)                                                    \
+  (std::string(":ircserv 005 ") + (nick) +                                  \
+   " CHANTYPES=# CHANMODES=itkol :are supported by this server\r\n")
 
 #define RPL_NAMREPLY(nick, chan, names)                                        \
   (std::string(":ircserv 353 ") + (nick) + " = " + (chan) + " :" + (names) + \
