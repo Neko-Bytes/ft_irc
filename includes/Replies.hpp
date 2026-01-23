@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   Replies.hpp                                        :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: kmummadi <kmummadi@student.42heilbronn.de  +#+  +:+       +#+        */
+/*   By: qhahn <qhahn@student.42.fr>                +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/12/05 06:24:48 by kmummadi          #+#    #+#             */
-/*   Updated: 2025/12/05 07:27:28 by kmummadi         ###   ########.fr       */
+/*   Updated: 2026/01/23 17:10:14 by qhahn            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -138,7 +138,7 @@
 
 #define RPL_ISUPPORT(nick)                                                    \
   (std::string(":ircserv 005 ") + (nick) +                                  \
-   " CHANTYPES=# CHANMODES=itkol :are supported by this server\r\n")
+   " CHANTYPES=# PREFIX=(o)@ CHANMODES=,k,l,it :are supported by this server\r\n")
 
 #define RPL_NAMREPLY(nick, chan, names)                                        \
   (std::string(":ircserv 353 ") + (nick) + " = " + (chan) + " :" + (names) + \

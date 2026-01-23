@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   CommandHandler.cpp                                 :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: kmummadi <kmummadi@student.42heilbronn.de  +#+  +:+       +#+        */
+/*   By: qhahn <qhahn@student.42.fr>                +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/12/04 02:37:22 by kmummadi          #+#    #+#             */
-/*   Updated: 2025/12/05 07:09:53 by kmummadi         ###   ########.fr       */
+/*   Updated: 2026/01/23 18:43:13 by qhahn            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -210,18 +210,7 @@ void CommandHandler::handleCAP(Server *server, Client *client,
 void CommandHandler::handleQUIT(Server *server, Client *client,
                                 const ParsedCommand &cmd) {
   std::string reason = cmd.hasTrailing ? cmd.trailing : "Quit";
-  std::string quitMsg = ":" + client->getNickname() + "!" +
-                        client->getUsername() + "@ircserv QUIT :" + reason +
-                        "\r\n";
-
-  const std::vector<Channel *> &joined = client->getJoinedChannels();
-
-  // Broadcast QUIT
-  for (size_t i = 0; i < joined.size(); i++) {
-    Channel *ch = joined[i];
-    ch->broadcast(quitMsg, client);
-  }
-  server->removeClient(client->getFd());
+  server->removeClient(client->getFd(), reason);
 }
 
 /* ============================= */
@@ -249,6 +238,10 @@ void CommandHandler::handlePRIVMSG(Server *server, Client *client,
   std::string target = cmd.params[0];
   std::string text = cmd.trailing;
 
+  if (text.empty() && cmd.params.size() > 1) {
+    text = cmd.params[1];
+  }
+
   // No text to send
   if (text.empty()) {
     server->sendReply(client->getFd(), ERR_NOTEXTTOSEND(nick));
@@ -257,12 +250,13 @@ void CommandHandler::handlePRIVMSG(Server *server, Client *client,
 
   /* ===== CHANNEL MESSAGE ===== */
   if (!target.empty() && target[0] == '#') {
-    if (!server->_channels.count(target)) {
+    std::string lowerTarget = Server::toLowerCase(target);
+    if (!server->_channels.count(lowerTarget)) {
       server->sendReply(client->getFd(), ERR_NOSUCHCHANNEL(nick, target));
       return;
     }
 
-    Channel *channel = server->_channels[target];
+    Channel *channel = server->_channels[lowerTarget];
 
     if (!channel->hasClient(client)) {
       server->sendReply(client->getFd(), ERR_CANNOTSENDTOCHAN(nick, target));
@@ -301,24 +295,39 @@ void CommandHandler::handleNOTICE(Server *server, Client *client,
 
   std::string target = cmd.params[0];
   std::string text = cmd.trailing;
+
+  if (text.empty() && cmd.params.size() > 1) {
+    text = cmd.params[1];
+  }
+  
   if (text.empty())
     return;
-  std::string msg = ":" + client->getNickname() + "!" + client->getUsername() + 
-                    "@ircserv NOTICE " + target + " :" + text + "\r\n";
+  
+  /* ===== CHANNEL MESSAGE ===== */
   if (!target.empty() && target[0] == '#') {
-    if (!server->_channels.count(target))
-      return;
-    Channel *channel = server->_channels[target];
+    std::string lowerTarget = Server::toLowerCase(target);
+    if (!server->_channels.count(lowerTarget))
+        return;
+    Channel *channel = server->_channels[lowerTarget];
     if (!channel->hasClient(client))
-      return;
+        return;
+
+    std::string msg = ":" + client->getNickname() + "!" + client->getUsername() +
+                      "@ircserv NOTICE " + target + " :" + text + "\r\n";
     channel->broadcast(msg, client);
     return;
   }
+
+  /* ===== DIRECT MESSAGE ===== */
   Client *receiver = server->getClientByNick(target);
   if (!receiver)
     return;
+  
+  std::string msg = ":" + client->getNickname() + "!" + client->getUsername() +
+                    "@ircserv NOTICE " + target + " :" + text + "\r\n";
   server->sendReply(receiver->getFd(), msg);
 }
+
 
 /* ============================= */
 /*         PING / PONG           */

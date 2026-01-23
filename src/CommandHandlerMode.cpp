@@ -35,7 +35,11 @@ void CommandHandler::handleMODE(Server *server, Client *client,
     }
 
     if (modeStr.empty()) {
-      server->sendReply(client->getFd(), RPL_UMODEIS(nick.empty() ? "*" : nick, "+"));
+      server->sendReply(client->getFd(), RPL_UMODEIS(nick.empty() ? "*" : nick, "+i"));
+      return;
+    }
+
+    if (modeStr == "+i" || modeStr == "-i") {
       return;
     }
 
@@ -45,7 +49,8 @@ void CommandHandler::handleMODE(Server *server, Client *client,
 
   // MODE #chan [<modestring> [<args>...]]
   const std::string chanName = ensureChannelPrefix(target);
-  Channel *channel = expectChannel(server, client, chanName, "MODE", true, true);
+  Channel *channel = expectChannel(server, client, chanName, "MODE", true,
+                                   !modeStr.empty());
   if (!channel)
     return;
   if (modeStr.empty())

@@ -24,16 +24,17 @@ Channel *CommandHandler::expectChannel(Server *server, Client *client,
                        const std::string &cmdName, bool mustExist,
                        bool requireMember, bool requireOperator) {
   std::string chanName = ensureChannelPrefix(rawName);
+  std::string lowerName = Server::toLowerCase(chanName);
   std::string nick = client->getNickname().empty() ? "*" : client->getNickname();
 
-  if (mustExist && !server->_channels.count(chanName)) {
+  if (mustExist && !server->_channels.count(lowerName)) {
     server->sendReply(client->getFd(), ERR_NOSUCHCHANNEL(nick, chanName));
     return NULL;
   }
 
   Channel *channel = NULL;
-  if (server->_channels.count(chanName))
-    channel = server->_channels[chanName];
+  if (server->_channels.count(lowerName))
+    channel = server->_channels[lowerName];
 
   if (requireMember && channel && !channel->hasClient(client)) {
     server->sendReply(client->getFd(), ERR_NOTONCHANNEL(nick, chanName));
@@ -138,6 +139,9 @@ void CommandHandler::modeAppendApplied(ModeContext &ctx, char sign, char mode,
 }
 
 bool CommandHandler::modeApplyLetter(ModeContext &ctx, char sign, char mode) {
+  std::string nick = ctx.client->getNickname().empty()
+                         ? "*"
+                         : ctx.client->getNickname();
   switch (mode) {
   case 'i': {
     ctx.channel->setInviteOnly(sign == '+');
@@ -152,12 +156,16 @@ bool CommandHandler::modeApplyLetter(ModeContext &ctx, char sign, char mode) {
   case 'k': {
     if (sign == '+') {
       std::string key;
-      if (!modeTakeArg(ctx, key))
+      if (!modeTakeArg(ctx, key)) {
+        ctx.server->sendReply(ctx.client->getFd(), ERR_NEEDMOREPARAMS(nick, "MODE"));
         return false;
+      }
       // Type-B mode: if parameter is missing/empty, ignore this mode.
       // (Servers may validate and error, but clients must also handle silent ignore.)
-      if (key.empty())
+      if (key.empty()) {
+        ctx.server->sendReply(ctx.client->getFd(), ERR_INVALIDMODEPARAM(nick, ctx.chanName));
         return false;
+      }
       if (ctx.channel->hasKey()) {
         ctx.server->sendReply(ctx.client->getFd(), ERR_KEYSET(ctx.client->getNickname(), ctx.chanName));
         return false;
@@ -168,19 +176,35 @@ bool CommandHandler::modeApplyLetter(ModeContext &ctx, char sign, char mode) {
       modeAppendApplied(ctx, sign, 'k', &maskedKey);
       return true;
     }
+	// B type so needs param
+    std::string key;
+    if (!modeTakeArg(ctx, key)) {
+      ctx.server->sendReply(ctx.client->getFd(), ERR_NEEDMOREPARAMS(nick, "MODE"));
+      return false;
+    }
+
     if (!ctx.channel->hasKey())
       return false;
     ctx.channel->clearKey();
-    modeAppendApplied(ctx, sign, 'k', NULL);
+    
+    const std::string maskedKey = "*";
+    modeAppendApplied(ctx, sign, 'k', &maskedKey);
     return true;
   }
   case 'l': {
     if (sign == '+') {
-      int limit = 0;
       std::string raw;
-      // For MODE parsing, ignore invalid limits without emitting errors.
-      if (!modeTakePositiveInt(ctx, limit, &raw))
+      if (!modeTakeArg(ctx, raw)) {
+        ctx.server->sendReply(ctx.client->getFd(), ERR_NEEDMOREPARAMS(nick, "MODE"));
         return false;
+      }
+      char *end = NULL;
+      long parsed = std::strtol(raw.c_str(), &end, 10);
+      if (!end || *end != '\0' || parsed <= 0 || parsed > INT_MAX) {
+        ctx.server->sendReply(ctx.client->getFd(), ERR_INVALIDMODEPARAM(nick, ctx.chanName));
+        return false;
+      }
+      int limit = static_cast<int>(parsed);
       ctx.channel->setLimit(limit);
       modeAppendApplied(ctx, sign, 'l', &raw);
       return true;
@@ -192,25 +216,28 @@ bool CommandHandler::modeApplyLetter(ModeContext &ctx, char sign, char mode) {
     return true;
   }
   case 'o': {
-    std::string nick;
-    if (!modeTakeArg(ctx, nick))
+    std::string targetNick;
+    if (!modeTakeArg(ctx, targetNick)) {
+      ctx.server->sendReply(ctx.client->getFd(), ERR_NEEDMOREPARAMS(nick, "MODE"));
       return false;
-    Client *targetClient = resolveClientOrReply(ctx.server, ctx.client, nick);
+    }
+    Client *targetClient = resolveClientOrReply(ctx.server, ctx.client, targetNick);
     if (!targetClient)
       return false;
     if (!ctx.channel->hasClient(targetClient)) {
       ctx.server->sendReply(ctx.client->getFd(),
-                            ERR_USERNOTINCHANNEL(ctx.client->getNickname(), nick, ctx.chanName));
+                            ERR_USERNOTINCHANNEL(ctx.client->getNickname(), targetNick, ctx.chanName));
       return false;
     }
     if (sign == '+')
       ctx.channel->addOperator(targetClient);
     else
       ctx.channel->removeOperator(targetClient);
-    modeAppendApplied(ctx, sign, 'o', &nick);
+    modeAppendApplied(ctx, sign, 'o', &targetNick);
     return true;
   }
   default:
+    ctx.server->sendReply(ctx.client->getFd(), ERR_UMODEUNKNOWNFLAG(nick));
     return false;
   }
 }

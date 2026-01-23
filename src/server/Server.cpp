@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   Server.cpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: kmummadi <kmummadi@student.42heilbronn.de  +#+  +:+       +#+        */
+/*   By: qhahn <qhahn@student.42.fr>                +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/12/03 16:47:38 by kmummadi          #+#    #+#             */
-/*   Updated: 2025/12/12 07:38:50 by kmummadi         ###   ########.fr       */
+/*   Updated: 2026/01/23 18:42:52 by qhahn            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -406,9 +406,10 @@ void Server::handleCommand(Client *client, const std::string &msg) {
 /* ============================= */
 
 bool Server::nicknameInUse(const std::string &nick) const {
+  std::string lowerNick = toLowerCase(nick);
   for (std::map<int, Client *>::const_iterator it = _clients.begin();
        it != _clients.end(); ++it) {
-    if (it->second->getNickname() == nick)
+    if (toLowerCase(it->second->getNickname()) == lowerNick)
       return true;
   }
   return false;
@@ -481,4 +482,22 @@ void Server::queueMessage(Client *client, const std::string &msg) {
   if (!client || msg.empty())
     return;
   client->queueMessage(msg);
+}
+
+std::string Server::toLowerCase(const std::string &str) {
+  std::string lower = str;
+  for (size_t i = 0; i < lower.length(); ++i) {
+    char c = lower[i];
+    if (c >= 'A' && c <= 'Z')
+      lower[i] = c + 32;
+    else if (c == '[')
+      lower[i] = '{';
+    else if (c == ']')
+      lower[i] = '}';
+    else if (c == '\\')
+      lower[i] = '|';
+    else if (c == '^')
+      lower[i] = '~'; // RFC 2812 says ^ maps to ~
+  }
+  return lower;
 }
