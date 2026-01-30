@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   ClientHandling.cpp                                 :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: kmummadi <kmummadi@student.42heilbronn.de  +#+  +:+       +#+        */
+/*   By: qhahn <qhahn@student.42.fr>                +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/12/04 18:43:23 by kmummadi          #+#    #+#             */
-/*   Updated: 2025/12/12 07:44:15 by kmummadi         ###   ########.fr       */
+/*   Updated: 2026/01/23 18:43:52 by qhahn            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -64,14 +64,14 @@ bool Server::handleClientRead(int index) {
     if (bytes < 0 &&
         (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR))
       return true;
-    removeClient(fd);
+    removeClient(fd, "Connection closed by peer");
     return (false);
   }
 
   Client *c = _clients[fd];
   c->appendToBuffer(std::string(buffer, bytes));
   if (c->hasInputOverflow()) {
-    removeClient(fd);
+    removeClient(fd, "Input overflow");
     return (false);
   }
 
@@ -91,13 +91,13 @@ bool Server::handleClientRead(int index) {
 /**
  * @brief Removes a client from the server.
  */
-void Server::removeClient(int fd) {
+void Server::removeClient(int fd, const std::string &reason) {
   // LOG DISCONNECTION
-  Logger::logDisconnect(fd, "Connection closed by peer or quit");
+  Logger::logDisconnect(fd, reason);
 
   if (_clients.count(fd)) {
     std::string nick = _clients[fd]->getNickname();
-    disconnectClientFromChannels(fd);
+    disconnectClientFromChannels(fd, reason);
     if (!nick.empty())
       removeInvitesForNick(nick);
     delete _clients[fd];
@@ -118,37 +118,21 @@ void Server::removeClient(int fd) {
  * So even if another person joins in, he will not be the operator.
  * Also it is a wise method to save memory.
  */
-void Server::disconnectClientFromChannels(int fd) {
+void Server::disconnectClientFromChannels(int fd, const std::string &reason) {
   if (!_clients.count(fd))
     return;
 
   Client *client = _clients[fd];
+  std::vector<Channel *> channels = client->getJoinedChannels();
+  
+  std::string quitMsg = ":" + client->getNickname() + "!" + client->getUsername() + "@ircserv QUIT :" + reason + "\r\n";
 
-  // Iterate thru channels
-  std::map<std::string, Channel *>::iterator it = _channels.begin();
-  while (it != _channels.end()) {
-    Channel *channel = it->second;
-
-    if (channel->hasClient(client)) {
-      // Client found in the channel
-      // Remove the client from the channel
-      channel->removeClient(client);
-
-      // If channel is empty, delete it
-      if (channel->getClients().empty()) {
-        delete channel;
-        // get the next valid iterator first and then erase prev
-        std::map<std::string, Channel *>::iterator to_erase = it;
-        ++it;
-        _channels.erase(to_erase);
-      } else {
-        // Just move to next channel
-        ++it;
-      }
-    } else {
-      // Client wasn't found in the channel
-      // move to next one
-      ++it;
+  for (size_t i = 0; i < channels.size(); ++i) {
+    Channel *ch = channels[i];
+    if (ch) {
+        ch->broadcast(quitMsg, client);
+        ch->removeClient(client);
+        cleanupChannel(ch->getName());
     }
   }
 }

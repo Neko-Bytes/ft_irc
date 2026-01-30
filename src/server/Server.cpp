@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   Server.cpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: kmummadi <kmummadi@student.42heilbronn.de  +#+  +:+       +#+        */
+/*   By: qhahn <qhahn@student.42.fr>                +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/12/03 16:47:38 by kmummadi          #+#    #+#             */
-/*   Updated: 2025/12/12 07:38:50 by kmummadi         ###   ########.fr       */
+/*   Updated: 2026/01/23 18:42:52 by qhahn            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -71,7 +71,7 @@ void Server::signalHandler(int signum) {
  * @brief Constructs the Server object with the given port and password.
  */
 Server::Server(const std::string &port, const std::string &password)
-    : _port(port), _password(password), _listenFd(-1) {}
+    : _port(port), _password(password), _listenFd(-1), datetime(std::string(__DATE__) + " " + __TIME__) {}
 
 /**
  * @brief Destructor cleans all client and channel maps and closes the server
@@ -354,7 +354,8 @@ void Server::handleCommand(Client *client, const std::string &msg) {
 
   // Commands that are allowed even if the client is not fully registered
   bool alwaysAllowed = (name == "PASS" || name == "NICK" || name == "USER" ||
-                        name == "PING" || name == "PONG" || name == "QUIT");
+                        name == "PING" || name == "PONG" || name == "QUIT" ||
+                        name == "CAP");
 
   // Block everything else until registration is complete
   if (!alwaysAllowed && !client->isAuthenticated()) {
@@ -392,6 +393,8 @@ void Server::handleCommand(Client *client, const std::string &msg) {
     CommandHandler::handleINVITE(this, client, cmd);
   else if (name == "WHOIS")
     CommandHandler::handleWHOIS(this, client, cmd);
+  else if (name == "CAP")
+    CommandHandler::handleCAP(this, client, cmd);
   else if (name == "QUIT")
     CommandHandler::handleQUIT(this, client, cmd);
   else
@@ -403,9 +406,10 @@ void Server::handleCommand(Client *client, const std::string &msg) {
 /* ============================= */
 
 bool Server::nicknameInUse(const std::string &nick) const {
+  std::string lowerNick = toLowerCase(nick);
   for (std::map<int, Client *>::const_iterator it = _clients.begin();
        it != _clients.end(); ++it) {
-    if (it->second->getNickname() == nick)
+    if (toLowerCase(it->second->getNickname()) == lowerNick)
       return true;
   }
   return false;
@@ -428,6 +432,11 @@ bool Server::isClientFullyRegistered(Client *client) const {
  */
 void Server::sendWelcome(Client *client) {
   sendReply(client->getFd(), RPL_WELCOME(client->getNickname()));
+  sendReply(client->getFd(), RPL_YOURHOST(client->getNickname()));
+  sendReply(client->getFd(), RPL_CREATED(client->getNickname(), datetime));
+  sendReply(client->getFd(), RPL_MYINFO(client->getNickname()));
+  sendReply(client->getFd(), RPL_ISUPPORT(client->getNickname()));
+  sendReply(client->getFd(), ERR_NOMOTD(client->getNickname()));
 }
 
 /**
@@ -473,4 +482,22 @@ void Server::queueMessage(Client *client, const std::string &msg) {
   if (!client || msg.empty())
     return;
   client->queueMessage(msg);
+}
+
+std::string Server::toLowerCase(const std::string &str) {
+  std::string lower = str;
+  for (size_t i = 0; i < lower.length(); ++i) {
+    char c = lower[i];
+    if (c >= 'A' && c <= 'Z')
+      lower[i] = c + 32;
+    else if (c == '[')
+      lower[i] = '{';
+    else if (c == ']')
+      lower[i] = '}';
+    else if (c == '\\')
+      lower[i] = '|';
+    else if (c == '^')
+      lower[i] = '~'; // RFC 2812 says ^ maps to ~
+  }
+  return lower;
 }

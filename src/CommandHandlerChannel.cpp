@@ -21,8 +21,8 @@ void CommandHandler::handleINVITE(Server *server, Client *client,
     return;
 
   std::string targetNick = cmd.params[0];
-  Channel *channel =
-      expectChannel(server, client, cmd.params[1], "INVITE", true, true, true);
+    Channel *channel =
+      expectChannel(server, client, cmd.params[1], "INVITE", true, true, false);
   if (!channel)
     return;
 
@@ -73,6 +73,23 @@ void CommandHandler::handleJOIN(Server *server, Client *client,
                                 const ParsedCommand &cmd) {
   if (!requireParams(server, client, cmd, 1, "JOIN"))
     return;
+
+  if (cmd.params[0] == "0") {
+    std::vector<Channel *> joined = client->getJoinedChannels();
+    for (size_t i = 0; i < joined.size(); ++i) {
+      Channel *channel = joined[i];
+      if (!channel)
+        continue;
+      std::string partMsg = ":" + client->getNickname() + "!" +
+                            client->getUsername() + "@ircserv PART " +
+                            channel->getName() + "\r\n";
+      channel->broadcast(partMsg, NULL);
+      channel->removeClient(client);
+      client->leaveChannel(channel);
+      server->cleanupChannel(channel->getName());
+    }
+    return;
+  }
 
   std::vector<std::string> channels = splitCommaList(cmd.params[0]);
   std::vector<std::string> keys;
@@ -165,21 +182,25 @@ void CommandHandler::handlePART(Server *server, Client *client,
   if (!requireParams(server, client, cmd, 1, "PART"))
     return;
 
-  Channel *channel =
-      expectChannel(server, client, cmd.params[0], "PART", true, true);
-  if (!channel)
-    return;
-
+  std::vector<std::string> channels = splitCommaList(cmd.params[0]);
   std::string reason = cmd.hasTrailing ? (" :" + cmd.trailing) : "";
-  std::string partMsg = ":" + client->getNickname() + "!" +
-                        client->getUsername() + "@ircserv PART " +
-                        channel->getName() + reason + "\r\n";
-  channel->broadcast(partMsg, NULL);
 
-  channel->removeClient(client);
-  client->leaveChannel(channel);
+  for (size_t i = 0; i < channels.size(); ++i) {
+    Channel *channel =
+        expectChannel(server, client, channels[i], "PART", true, true);
+    if (!channel)
+      continue;
 
-  server->cleanupChannel(channel->getName());
+    std::string partMsg = ":" + client->getNickname() + "!" +
+                          client->getUsername() + "@ircserv PART " +
+                          channel->getName() + reason + "\r\n";
+    channel->broadcast(partMsg, NULL);
+
+    channel->removeClient(client);
+    client->leaveChannel(channel);
+
+    server->cleanupChannel(channel->getName());
+  }
 }
 
 /* ============================= */
@@ -223,9 +244,11 @@ void CommandHandler::handleKICK(Server *server, Client *client,
     return;
   }
 
+  std::string reason = cmd.hasTrailing ? (" :" + cmd.trailing) : "";
   std::string kickMsg = ":" + client->getNickname() + "!" +
                         client->getUsername() + "@ircserv KICK " +
-                        channel->getName() + " " + targetNick + "\r\n";
+                        channel->getName() + " " + targetNick + reason +
+                        "\r\n";
 
   channel->broadcast(kickMsg, NULL);
 

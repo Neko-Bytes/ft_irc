@@ -29,13 +29,28 @@ void CommandHandler::handleMODE(Server *server, Client *client,
   std::string nick = client->getNickname();
 
   if (target.empty() || (target[0] != '#')) {
-    server->sendReply(client->getFd(), ERR_NOSUCHCHANNEL(nick, target));
+    if (!nick.empty() && target != nick) {
+      server->sendReply(client->getFd(), ERR_USERSDONTMATCH(nick));
+      return;
+    }
+
+    if (modeStr.empty()) {
+      server->sendReply(client->getFd(), RPL_UMODEIS(nick.empty() ? "*" : nick, "+i"));
+      return;
+    }
+
+    if (modeStr == "+i" || modeStr == "-i") {
+      return;
+    }
+
+    server->sendReply(client->getFd(), ERR_UMODEUNKNOWNFLAG(nick.empty() ? "*" : nick));
     return;
   }
 
   // MODE #chan [<modestring> [<args>...]]
   const std::string chanName = ensureChannelPrefix(target);
-  Channel *channel = expectChannel(server, client, chanName, "MODE", true, true);
+  Channel *channel = expectChannel(server, client, chanName, "MODE", true,
+                                   !modeStr.empty());
   if (!channel)
     return;
   if (modeStr.empty())

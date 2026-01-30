@@ -67,6 +67,8 @@ public:
                         const ParsedCommand &cmd);
   static void handleTOPIC(Server *server, Client *client,
                           const ParsedCommand &cmd);
+  static void handleCAP(Server *server, Client *client,
+                        const ParsedCommand &cmd);
   // internal helpers for command handlers
   private:
   struct ModeContext {

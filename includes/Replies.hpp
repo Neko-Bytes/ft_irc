@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   Replies.hpp                                        :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: kmummadi <kmummadi@student.42heilbronn.de  +#+  +:+       +#+        */
+/*   By: qhahn <qhahn@student.42.fr>                +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/12/05 06:24:48 by kmummadi          #+#    #+#             */
-/*   Updated: 2025/12/05 07:27:28 by kmummadi         ###   ########.fr       */
+/*   Updated: 2026/01/23 17:10:14 by qhahn            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -52,6 +52,9 @@
 
 #define ERR_PASSWDMISMATCH(nick)                                               \
   (std::string(":ircserv 464 ") + (nick) + " :Password incorrect\r\n")
+
+#define ERR_NOMOTD(nick)                                               \
+  (std::string(":ircserv 422 ") + (nick) + " :MOTD File is missing\r\n")
 
 /* ============================= */
 /*    CHANNEL ERROR NUMERICS     */
@@ -121,6 +124,21 @@
 
 #define RPL_WELCOME(nick)                                                      \
   (std::string(":ircserv 001 ") + (nick) + " :Welcome to the IRC server!\r\n")
+
+#define RPL_YOURHOST(nick)                                                      \
+  (std::string(":ircserv 002 ") + (nick) +                                      \
+   " :Your host is ircserv, running version 0.42\r\n")
+
+#define RPL_CREATED(nick, datetime)                                              \
+  (std::string(":ircserv 003 ") + (nick) + " :this server was created " +        \
+   datetime + "\r\n")
+
+#define RPL_MYINFO(nick)                                                      \
+  (std::string(":ircserv 004 ") + (nick) + " ircserv 0.42 - kilot kol\r\n")
+
+#define RPL_ISUPPORT(nick)                                                    \
+  (std::string(":ircserv 005 ") + (nick) +                                  \
+   " CHANTYPES=# PREFIX=(o)@ CHANMODES=,k,l,it :are supported by this server\r\n")
 
 #define RPL_NAMREPLY(nick, chan, names)                                        \
   (std::string(":ircserv 353 ") + (nick) + " = " + (chan) + " :" + (names) + \

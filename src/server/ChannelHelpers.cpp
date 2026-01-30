@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   ChannelHelpers.cpp                                 :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: kmummadi <kmummadi@student.42heilbronn.de  +#+  +:+       +#+        */
+/*   By: qhahn <qhahn@student.42.fr>                +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/12/05 06:20:43 by kmummadi          #+#    #+#             */
-/*   Updated: 2025/12/05 07:44:56 by kmummadi         ###   ########.fr       */
+/*   Updated: 2026/01/23 18:42:37 by qhahn            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -27,11 +27,12 @@
  *  - Return the channel pointer
  */
 Channel *Server::getOrCreateChannel(const std::string &name) {
-  if (_channels.count(name))
-    return _channels[name];
+  std::string lowerName = toLowerCase(name);
+  if (_channels.count(lowerName))
+    return _channels[lowerName];
 
   Channel *ch = new Channel(name);
-  _channels[name] = ch;
+  _channels[lowerName] = ch;
   return ch;
 }
 
@@ -43,17 +44,18 @@ Channel *Server::getOrCreateChannel(const std::string &name) {
  *  - If it has zero members, delete it and remove it from the map
  */
 void Server::cleanupChannel(std::string name) {
-  if (!_channels.count(name))
+  std::string lowerName = toLowerCase(name);
+  if (!_channels.count(lowerName))
     return;
 
-  Channel *ch = _channels[name];
+  Channel *ch = _channels[lowerName];
   if (!ch)
     return;
 
   if (ch->getClients().empty()) {
     ch->clearInvites();
     delete ch;
-    _channels.erase(name);
+    _channels.erase(lowerName);
   }
 }
 
@@ -68,9 +70,10 @@ void Server::cleanupChannel(std::string name) {
  * @return Client* Pointer if found, NULL otherwise.
  */
 Client *Server::getClientByNick(const std::string &nick) const {
+  std::string lowerNick = toLowerCase(nick);
   for (std::map<int, Client *>::const_iterator it = _clients.begin();
        it != _clients.end(); ++it) {
-    if (it->second->getNickname() == nick)
+    if (toLowerCase(it->second->getNickname()) == lowerNick)
       return it->second;
   }
   return NULL;
