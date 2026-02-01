@@ -54,6 +54,8 @@ bool Server::_signal = false;
  * sig) actually has two arguments. The compiler secretly rewrites it to: void
  * Server::myHandler(Server* this, int sig). Since this would not be accepted by
  * signal(), we use static to state that this method is independent of object.
+ * A static function in a class is an independent function under the class'
+ * namespace and doesn't need to access class attributes
  */
 void Server::signalHandler(int signum) {
   (void)signum; // Silence unused warning
@@ -71,7 +73,8 @@ void Server::signalHandler(int signum) {
  * @brief Constructs the Server object with the given port and password.
  */
 Server::Server(const std::string &port, const std::string &password)
-    : _port(port), _password(password), _listenFd(-1), datetime(std::string(__DATE__) + " " + __TIME__) {}
+    : _port(port), _password(password), _listenFd(-1),
+      datetime(std::string(__DATE__) + " " + __TIME__) {}
 
 /**
  * @brief Destructor cleans all client and channel maps and closes the server
@@ -222,7 +225,7 @@ void Server::mainLoop() {
           // Check for Hangup (POLLHUP) or Socket Error (POLLERR)
           // If these flags are set, the client is dead. Remove immediately.
           if (_pollfds[i].revents & (POLLERR | POLLHUP)) {
-            removeClient(fd);
+            removeClient(fd, "Client is dead");
             continue;
           }
 
@@ -248,7 +251,7 @@ void Server::mainLoop() {
                 // do nothing and keep data in buffer for next time.
               } else {
                 // Real error, disconnect client
-                removeClient(fd);
+                removeClient(fd, "Client has disconnected");
                 continue;
               }
             }
@@ -353,9 +356,9 @@ void Server::handleCommand(Client *client, const std::string &msg) {
   Logger::logCommand(client->getNickname(), cmd.command, logParams);
 
   // Commands that are allowed even if the client is not fully registered
-  bool alwaysAllowed = (name == "PASS" || name == "NICK" || name == "USER" ||
-                        name == "PING" || name == "PONG" || name == "QUIT" ||
-                        name == "CAP");
+  bool alwaysAllowed =
+      (name == "PASS" || name == "NICK" || name == "USER" || name == "PING" ||
+       name == "PONG" || name == "QUIT" || name == "CAP");
 
   // Block everything else until registration is complete
   if (!alwaysAllowed && !client->isAuthenticated()) {

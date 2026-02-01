@@ -40,6 +40,10 @@ debug: clean
 	@echo "Building debug version..."
 	@$(CXX) $(CXXFLAGS) $(DEBUG_FLAGS) $(SRC_PATHS) -o $(NAME)_debug
 
+debug_fclean: clean
+	@echo "Removing executable..."
+	@rm -f $(NAME)_debug
+
 re: fclean all
 
 -include $(DEP_FILES)

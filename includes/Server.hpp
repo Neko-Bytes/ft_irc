@@ -61,6 +61,7 @@ public:
   const std::string &getPassword() const;
 
   static void signalHandler(int signum);
+  static std::string toLowerCase(const std::string &str);
 
 private:
   friend class CommandHandler; // allow CommandHandler to access private
@@ -97,7 +98,7 @@ private:
    * ============================= */
   void acceptNewClient();
   bool handleClientRead(int index);
-  void removeClient(int fd);
+  void removeClient(int fd, const std::string &reason);
 
   /* =============================
    *       MESSAGE PROCESSING
@@ -123,7 +124,7 @@ private:
   void removeInvitesForNick(const std::string &nick);
   void sendReply(int fd, const std::string &msg);
   void queueMessage(Client *client, const std::string &msg);
-  void disconnectClientFromChannels(int fd);
+  void disconnectClientFromChannels(int fd, const std::string &reason);
 };
 
 #endif
