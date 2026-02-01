@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   Server.hpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: kmummadi <kmummadi@student.42heilbronn.de  +#+  +:+       +#+        */
+/*   By: qhahn <qhahn@student.42.fr>                +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/12/03 16:13:57 by kmummadi          #+#    #+#             */
-/*   Updated: 2025/12/04 18:44:05 by kmummadi         ###   ########.fr       */
+/*   Updated: 2026/01/23 18:43:23 by qhahn            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -97,7 +97,7 @@ private:
    * ============================= */
   void acceptNewClient();
   bool handleClientRead(int index);
-  void removeClient(int fd);
+  void removeClient(int fd, const std::string &reason = "Connection closed");
 
   /* =============================
    *       MESSAGE PROCESSING
@@ -123,7 +123,8 @@ private:
   void removeInvitesForNick(const std::string &nick);
   void sendReply(int fd, const std::string &msg);
   void queueMessage(Client *client, const std::string &msg);
-  void disconnectClientFromChannels(int fd);
+  void disconnectClientFromChannels(int fd, const std::string &reason);
+  static std::string toLowerCase(const std::string &str);
 };
 
 #endif

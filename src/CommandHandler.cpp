@@ -6,7 +6,7 @@
 /*   By: qhahn <qhahn@student.42.fr>                +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/12/04 02:37:22 by kmummadi          #+#    #+#             */
-/*   Updated: 2026/01/23 18:43:13 by qhahn            ###   ########.fr       */
+/*   Updated: 2026/01/23 19:10:37 by qhahn            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -402,31 +402,28 @@ void CommandHandler::handleWHO(Server *server, Client *client,
   const std::string &mask = cmd.params[0];
   std::string nick = client->getNickname();
   if (!mask.empty() && mask[0] == '#') {
-    if (!server->_channels.count(mask)) {
-      server->sendReply(client->getFd(), ERR_NOSUCHCHANNEL(nick, mask));
-      return;
-    }
-    Channel *channel = server->_channels[mask];
-    const std::vector<Client *> &members = channel->getClients();
-    for (size_t i = 0; i < members.size(); ++i) {
-      Client *entry = members[i];
-      server->sendReply(client->getFd(), RPL_WHOREPLY(nick, channel->getName(),
-                        entry->getUsername(), "ircserv", "ircserv", entry->getNickname(), "H", entry->getRealname()));
+    std::string lowerMask = Server::toLowerCase(mask);
+    if (server->_channels.count(lowerMask)) {
+      Channel *channel = server->_channels[lowerMask];
+      const std::vector<Client *> &members = channel->getClients();
+      for (size_t i = 0; i < members.size(); ++i) {
+        Client *entry = members[i];
+        server->sendReply(client->getFd(), RPL_WHOREPLY(nick, channel->getName(),
+                          entry->getUsername(), "ircserv", "ircserv", entry->getNickname(), "H", entry->getRealname()));
+      }
     }
   } else {
     Client *target = server->getClientByNick(mask);
-    if (!target) {
-      server->sendReply(client->getFd(), ERR_NOSUCHNICK(nick, mask));
-      return;
+    if (target) {
+      std::string chanName = "*";
+      const std::vector<Channel *> &joined = target->getJoinedChannels();
+      if (!joined.empty())
+        chanName = joined[0]->getName();
+      server->sendReply(
+          client->getFd(),
+          RPL_WHOREPLY(nick, chanName, target->getUsername(),
+                "ircserv", "ircserv", target->getNickname(), "H", target->getRealname()));
     }
-    std::string chanName = "*";
-    const std::vector<Channel *> &joined = target->getJoinedChannels();
-    if (!joined.empty())
-      chanName = joined[0]->getName();
-    server->sendReply(
-        client->getFd(),
-        RPL_WHOREPLY(nick, chanName, target->getUsername(),
-              "ircserv", "ircserv", target->getNickname(), "H", target->getRealname()));
   }
   server->sendReply(client->getFd(), RPL_ENDOFWHO(nick, mask));
 }
