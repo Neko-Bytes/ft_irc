@@ -97,7 +97,7 @@ private:
    * ============================= */
   void acceptNewClient();
   bool handleClientRead(int index);
-  void removeClient(int fd, const std::string &reason = "Connection closed");
+  void removeClient(int fd, const std::string &reason);
 
   /* =============================
    *       MESSAGE PROCESSING
