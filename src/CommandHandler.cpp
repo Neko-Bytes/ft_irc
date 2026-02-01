@@ -235,9 +235,7 @@ void CommandHandler::handlePRIVMSG(Server *server, Client *client,
     return;
   }
 
-  std::string target = cmd.params[0];
   std::string text = cmd.trailing;
-
   if (text.empty() && cmd.params.size() > 1) {
     text = cmd.params[1];
   }
@@ -248,40 +246,50 @@ void CommandHandler::handlePRIVMSG(Server *server, Client *client,
     return;
   }
 
-  /* ===== CHANNEL MESSAGE ===== */
-  if (!target.empty() && target[0] == '#') {
-    std::string lowerTarget = Server::toLowerCase(target);
-    if (!server->_channels.count(lowerTarget)) {
-      server->sendReply(client->getFd(), ERR_NOSUCHCHANNEL(nick, target));
-      return;
+  std::vector<std::string> targets = splitCommaList(cmd.params[0]);
+  std::set<std::string> sentTargets;
+
+  for (size_t i = 0; i < targets.size(); ++i) {
+    std::string target = targets[i];
+    if (sentTargets.count(target))
+      continue;
+    sentTargets.insert(target);
+
+    /* ===== CHANNEL MESSAGE ===== */
+    if (!target.empty() && target[0] == '#') {
+      std::string lowerTarget = Server::toLowerCase(target);
+      if (!server->_channels.count(lowerTarget)) {
+        server->sendReply(client->getFd(), ERR_NOSUCHCHANNEL(nick, target));
+        continue;
+      }
+
+      Channel *channel = server->_channels[lowerTarget];
+
+      if (!channel->hasClient(client)) {
+        server->sendReply(client->getFd(), ERR_CANNOTSENDTOCHAN(nick, target));
+        continue;
+      }
+
+      std::string msg = ":" + client->getNickname() + "!" +
+                        client->getUsername() + "@ircserv PRIVMSG " + target +
+                        " :" + text + "\r\n";
+
+      channel->broadcast(msg, client);
+      continue;
     }
 
-    Channel *channel = server->_channels[lowerTarget];
-
-    if (!channel->hasClient(client)) {
-      server->sendReply(client->getFd(), ERR_CANNOTSENDTOCHAN(nick, target));
-      return;
+    /* ===== DIRECT MESSAGE ===== */
+    Client *receiver = server->getClientByNick(target);
+    if (!receiver) {
+      server->sendReply(client->getFd(), ERR_NOSUCHNICK(nick, target));
+      continue;
     }
 
-    std::string msg = ":" + client->getNickname() + "!" +
-                      client->getUsername() + "@ircserv PRIVMSG " + target +
-                      " :" + text + "\r\n";
+    std::string msg = ":" + client->getNickname() + "!" + client->getUsername() +
+                      "@ircserv PRIVMSG " + target + " :" + text + "\r\n";
 
-    channel->broadcast(msg, client);
-    return;
+    server->sendReply(receiver->getFd(), msg);
   }
-
-  /* ===== DIRECT MESSAGE ===== */
-  Client *receiver = server->getClientByNick(target);
-  if (!receiver) {
-    server->sendReply(client->getFd(), ERR_NOSUCHNICK(nick, target));
-    return;
-  }
-
-  std::string msg = ":" + client->getNickname() + "!" + client->getUsername() +
-                    "@ircserv PRIVMSG " + target + " :" + text + "\r\n";
-
-  server->sendReply(receiver->getFd(), msg);
 }
 
 /* ============================= */
@@ -293,39 +301,52 @@ void CommandHandler::handleNOTICE(Server *server, Client *client,
   if (cmd.params.empty())
     return;
 
-  std::string target = cmd.params[0];
   std::string text = cmd.trailing;
-
   if (text.empty() && cmd.params.size() > 1) {
     text = cmd.params[1];
   }
-  
+
+  // No text to send
   if (text.empty())
     return;
-  
-  /* ===== CHANNEL MESSAGE ===== */
-  if (!target.empty() && target[0] == '#') {
-    std::string lowerTarget = Server::toLowerCase(target);
-    if (!server->_channels.count(lowerTarget))
-        return;
-    Channel *channel = server->_channels[lowerTarget];
-    if (!channel->hasClient(client))
-        return;
+
+  std::vector<std::string> targets = splitCommaList(cmd.params[0]);
+  std::set<std::string> sentTargets;
+
+  for (size_t i = 0; i < targets.size(); ++i) {
+    std::string target = targets[i];
+    if (sentTargets.count(target))
+      continue;
+    sentTargets.insert(target);
+
+    /* ===== CHANNEL MESSAGE ===== */
+    if (!target.empty() && target[0] == '#') {
+      std::string lowerTarget = Server::toLowerCase(target);
+      if (!server->_channels.count(lowerTarget))
+        continue; // Silence error
+
+      Channel *channel = server->_channels[lowerTarget];
+
+      if (!channel->hasClient(client))
+        continue; // Silence error
+
+      std::string msg = ":" + client->getNickname() + "!" +
+                        client->getUsername() + "@ircserv NOTICE " + target +
+                        " :" + text + "\r\n";
+      channel->broadcast(msg, client);
+      continue;
+    }
+
+    /* ===== DIRECT MESSAGE ===== */
+    Client *receiver = server->getClientByNick(target);
+    if (!receiver)
+      continue; // Silence error
 
     std::string msg = ":" + client->getNickname() + "!" + client->getUsername() +
                       "@ircserv NOTICE " + target + " :" + text + "\r\n";
-    channel->broadcast(msg, client);
-    return;
-  }
 
-  /* ===== DIRECT MESSAGE ===== */
-  Client *receiver = server->getClientByNick(target);
-  if (!receiver)
-    return;
-  
-  std::string msg = ":" + client->getNickname() + "!" + client->getUsername() +
-                    "@ircserv NOTICE " + target + " :" + text + "\r\n";
-  server->sendReply(receiver->getFd(), msg);
+    server->sendReply(receiver->getFd(), msg);
+  }
 }
 
 
@@ -335,13 +356,14 @@ void CommandHandler::handleNOTICE(Server *server, Client *client,
 
 void CommandHandler::handlePING(Server *server, Client *client,
                                 const ParsedCommand &cmd) {
-  if (cmd.params.empty()) {
+  if (cmd.params.empty() && cmd.trailing.empty()) {
     std::string nick = client->getNickname().empty() ? "*" : client->getNickname();
     server->sendReply(client->getFd(), ERR_NEEDMOREPARAMS(nick, "PING"));
     return;
   }
 
-  std::string pong = "PONG :" + cmd.params[0] + "\r\n";
+  std::string origin = !cmd.params.empty() ? cmd.params[0] : cmd.trailing;
+  std::string pong = "PONG :" + origin + "\r\n";
   server->sendReply(client->getFd(), pong);
 }
 
@@ -408,8 +430,13 @@ void CommandHandler::handleWHO(Server *server, Client *client,
       const std::vector<Client *> &members = channel->getClients();
       for (size_t i = 0; i < members.size(); ++i) {
         Client *entry = members[i];
+        
+        std::string status = "H";
+        if (channel->isOperator(entry))
+          status += "@";
+        
         server->sendReply(client->getFd(), RPL_WHOREPLY(nick, channel->getName(),
-                          entry->getUsername(), "ircserv", "ircserv", entry->getNickname(), "H", entry->getRealname()));
+                          entry->getUsername(), "ircserv", "ircserv", entry->getNickname(), status, entry->getRealname()));
       }
     }
   } else {

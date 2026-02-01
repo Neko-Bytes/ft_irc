@@ -185,10 +185,15 @@ bool CommandHandler::modeApplyLetter(ModeContext &ctx, char sign, char mode) {
 
     if (!ctx.channel->hasKey())
       return false;
+
+    if (key != ctx.channel->getKey()) {
+      ctx.server->sendReply(ctx.client->getFd(), ERR_INVALIDMODEPARAM(nick, ctx.chanName));
+      return false;
+    }
+    
     ctx.channel->clearKey();
     
-    const std::string maskedKey = "*";
-    modeAppendApplied(ctx, sign, 'k', &maskedKey);
+    modeAppendApplied(ctx, sign, 'k', &key);
     return true;
   }
   case 'l': {

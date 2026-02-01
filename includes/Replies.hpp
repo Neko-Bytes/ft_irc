@@ -138,7 +138,7 @@
 
 #define RPL_ISUPPORT(nick)                                                    \
   (std::string(":ircserv 005 ") + (nick) +                                  \
-   " CHANTYPES=# PREFIX=(o)@ CHANMODES=,k,l,it :are supported by this server\r\n")
+   " CHANTYPES=# PREFIX=(o)@ CHANMODES=,k,l,it NICKLEN=32 USERLEN=16 :are supported by this server\r\n")
 
 #define RPL_NAMREPLY(nick, chan, names)                                        \
   (std::string(":ircserv 353 ") + (nick) + " = " + (chan) + " :" + (names) + \
