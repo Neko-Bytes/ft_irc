@@ -134,11 +134,11 @@
    datetime + "\r\n")
 
 #define RPL_MYINFO(nick)                                                      \
-  (std::string(":ircserv 004 ") + (nick) + " ircserv 0.42 - kilot kol\r\n")
+  (std::string(":ircserv 004 ") + (nick) + " ircserv 0.42 - kilot\r\n")
 
 #define RPL_ISUPPORT(nick)                                                    \
   (std::string(":ircserv 005 ") + (nick) +                                  \
-   " CHANTYPES=# PREFIX=(o)@ CHANMODES=,k,l,it NICKLEN=32 USERLEN=16 :are supported by this server\r\n")
+   " CHANTYPES=# PREFIX=(o)@ CHANMODES=o,k,l,i,t NICKLEN=32 USERLEN=16 :are supported by this server\r\n")
 
 #define RPL_NAMREPLY(nick, chan, names)                                        \
   (std::string(":ircserv 353 ") + (nick) + " = " + (chan) + " :" + (names) + \

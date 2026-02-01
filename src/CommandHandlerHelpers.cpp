@@ -171,9 +171,7 @@ bool CommandHandler::modeApplyLetter(ModeContext &ctx, char sign, char mode) {
         return false;
       }
       ctx.channel->setKey(key);
-      // Hide sensitive information in broadcast.
-      const std::string maskedKey = "*";
-      modeAppendApplied(ctx, sign, 'k', &maskedKey);
+      modeAppendApplied(ctx, sign, 'k', &key);
       return true;
     }
 	// B type so needs param
@@ -269,8 +267,12 @@ void CommandHandler::replyActiveModes(Server *server, const Channel &channel,
 
   std::string chanName = channel.getName();
   std::string args;
-  if (channel.hasKey())
-    args += " *";
+  if (channel.hasKey()) {
+    if (channel.hasClient(const_cast<Client *>(&client)))
+      args += " " + channel.getKey();
+    else
+      args += " *";
+  }
   if (channel.hasLimit()) {
     std::stringstream ss;
     ss << channel.getLimit();

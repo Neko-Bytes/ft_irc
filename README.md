@@ -64,9 +64,9 @@ make fclean
 ```
 ## Supported commands
 - Authentication: ```PASS, NICK, USER, QUIT```
-- Channel Operations: ```JOIN, PART, TOPIC, NAMES, LIST, INVITE, KICK, MODE```
+- Channel Operations: ```JOIN, PART, TOPIC, INVITE, KICK, MODE```
 - Messaging: ```PRIVMSG, NOTICE```
-- Server Queries: ```PING/PONG, WHO```
+- Server Queries: ```PING/PONG, WHO, WHOIS```
 ## Supported channel modes
 - ```k``` add or remove a channel access key
 - ```o``` add or remove a user from operator status
@@ -74,7 +74,7 @@ make fclean
 - ```l``` limit the maximum number of channel members
 - ```t``` set channel topic protection status
 ### Limits
-- ```512``` bytes per message, including ```\r\n``` terminator
+- ```512``` bytes per message, including ```\r\n``` terminator and commands/syntax.
 - limited by file descriptor limit of host os (```ulimit -n```)
 - ```NICK``` can't exceed 32 characters
 - ```USER``` can't exceed 16 characters and will be truncated
