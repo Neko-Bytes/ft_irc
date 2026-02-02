@@ -6,7 +6,7 @@
 /*   By: qhahn <qhahn@student.42.fr>                +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/12/05 06:24:48 by kmummadi          #+#    #+#             */
-/*   Updated: 2026/01/23 17:10:14 by qhahn            ###   ########.fr       */
+/*   Updated: 2026/01/23 18:40:38 by qhahn            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -134,11 +134,11 @@
    datetime + "\r\n")
 
 #define RPL_MYINFO(nick)                                                      \
-  (std::string(":ircserv 004 ") + (nick) + " ircserv 0.42 - kilot kol\r\n")
+  (std::string(":ircserv 004 ") + (nick) + " ircserv 0.42 - kilot\r\n")
 
 #define RPL_ISUPPORT(nick)                                                    \
   (std::string(":ircserv 005 ") + (nick) +                                  \
-   " CHANTYPES=# PREFIX=(o)@ CHANMODES=,k,l,it :are supported by this server\r\n")
+   " CHANTYPES=# PREFIX=(o)@ CHANMODES=o,k,l,i,t NICKLEN=32 USERLEN=16 :are supported by this server\r\n")
 
 #define RPL_NAMREPLY(nick, chan, names)                                        \
   (std::string(":ircserv 353 ") + (nick) + " = " + (chan) + " :" + (names) + \

@@ -76,6 +76,12 @@ bool Server::handleClientRead(int index) {
   }
 
   std::vector<std::string> msgs = extractMessages(c);
+
+  if (c->hasInputOverflow()) {
+    removeClient(fd, "Input overflow");
+    return (false);
+  }
+
   for (size_t i = 0; i < msgs.size(); i++) {
     handleCommand(c, msgs[i]);
 

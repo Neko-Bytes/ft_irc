@@ -59,6 +59,7 @@ void Client::setUsername(const std::string &user) { _username = user; }
 void Client::setRealname(const std::string &real) { _realname = real; }
 void Client::setAuthenticated(bool status) { _authenticated = status; }
 void Client::setValidPass(bool status) { _hasValidPass = status; }
+void Client::setInputOverflow(bool status) { _inputOverflow = status; }
 
 /* ============================= */
 /*         BUFFER HANDLING       */

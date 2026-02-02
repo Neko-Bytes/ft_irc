@@ -307,8 +307,12 @@ std::vector<std::string> Server::extractMessages(Client *client) {
   while (true) {
     // 1. Find the newline
     size_t pos = buffer.find('\n');
-    if (pos == std::string::npos)
+    if (pos == std::string::npos) {
+      if (buffer.size() > 512) {
+        client->setInputOverflow(true);
+      }
       break;
+    }
 
     // 2. Extract the message (substring before \n)
     std::string msg = buffer.substr(0, pos);
@@ -318,11 +322,15 @@ std::vector<std::string> Server::extractMessages(Client *client) {
     if (!msg.empty() && msg[msg.length() - 1] == '\r') {
       msg.erase(msg.length() - 1);
     }
-
-    messages.push_back(msg);
-
     // 4. Remove processed line from buffer (pos + 1 to include the \n)
     buffer.erase(0, pos + 1);
+
+    if (msg.length() > 512) {
+        client->setInputOverflow(true);
+        messages.clear();
+        return messages;
+    }
+    messages.push_back(msg);
   }
   return messages;
 }
@@ -347,6 +355,7 @@ void Server::handleCommand(Client *client, const std::string &msg) {
   }
 
   // Logging commands
+  /*
   std::string logParams;
   for (size_t i = 0; i < cmd.params.size(); ++i)
     logParams += cmd.params[i] + " ";
@@ -354,6 +363,7 @@ void Server::handleCommand(Client *client, const std::string &msg) {
     logParams += ":" + cmd.trailing;
 
   Logger::logCommand(client->getNickname(), cmd.command, logParams);
+  */
 
   // Commands that are allowed even if the client is not fully registered
   bool alwaysAllowed =
@@ -499,8 +509,8 @@ std::string Server::toLowerCase(const std::string &str) {
       lower[i] = '}';
     else if (c == '\\')
       lower[i] = '|';
-    else if (c == '^')
-      lower[i] = '~'; // RFC 2812 says ^ maps to ~
+    else if (c == '~')
+      lower[i] = '^';
   }
   return lower;
 }

@@ -46,6 +46,7 @@ public:
   void setRealname(const std::string &real);
   void setAuthenticated(bool status);
   void setValidPass(bool status);
+  void setInputOverflow(bool status);
   
   // Buffer handling
   void appendToBuffer(const std::string &data);
