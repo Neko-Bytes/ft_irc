@@ -92,3 +92,4 @@ AI tools were used for:
 * testing integration of new units
 * explaining some IRC protocol numerics
 * refactoring some logic flow in client and channel
+* Generating comments in the code for documentation purposes
