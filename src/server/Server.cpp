@@ -65,6 +65,8 @@ void Server::signalHandler(int signum) {
   Server::_signal = true; // Flip the switch
 }
 
+bool Server::isShuttingDown() { return _signal; }
+
 /* ============================= */
 /*          CONSTRUCTION         */
 /* ============================= */
@@ -72,8 +74,12 @@ void Server::signalHandler(int signum) {
 /**
  * @brief Constructs the Server object with the given port and password.
  */
-Server::Server(const std::string &port, const std::string &password)
-    : _port(port), _password(password), _listenFd(-1),
+// Server::Server(const std::string &port, const std::string &password)
+//     : _port(port), _password(password), _listenFd(-1),
+//       datetime(std::string(__DATE__) + " " + __TIME__) {}
+Server::Server(const std::string &port, const std::string &password,
+               Display &display)
+    : _port(port), _password(password), _listenFd(-1), _display(display),
       datetime(std::string(__DATE__) + " " + __TIME__) {}
 
 /**
@@ -326,9 +332,9 @@ std::vector<std::string> Server::extractMessages(Client *client) {
     buffer.erase(0, pos + 1);
 
     if (msg.length() > 512) {
-        client->setInputOverflow(true);
-        messages.clear();
-        return messages;
+      client->setInputOverflow(true);
+      messages.clear();
+      return messages;
     }
     messages.push_back(msg);
   }

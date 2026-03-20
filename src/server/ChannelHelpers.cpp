@@ -33,6 +33,7 @@ Channel *Server::getOrCreateChannel(const std::string &name) {
 
   Channel *ch = new Channel(name);
   _channels[lowerName] = ch;
+  _display.addChannel();
   return ch;
 }
 
@@ -56,6 +57,7 @@ void Server::cleanupChannel(std::string name) {
     ch->clearInvites();
     delete ch;
     _channels.erase(lowerName);
+    _display.removeChannel();
   }
 }
 

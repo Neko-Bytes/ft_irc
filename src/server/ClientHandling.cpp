@@ -17,9 +17,9 @@
 #include "../../includes/Channel.hpp"
 #include "../../includes/Client.hpp"
 #include "../../includes/CommandHandler.hpp"
+#include "../../includes/Constants.hpp"
 #include "../../includes/Parser.hpp"
 #include "../../includes/Server.hpp"
-#include "../../includes/Constants.hpp"
 
 #include <vector>
 
@@ -48,6 +48,7 @@ void Server::acceptNewClient() {
   _clients[clientFd] = new Client(clientFd);
 
   addPollFd(clientFd);
+  _display.addClient();
 
   // std::cout << "Client connected: fd " << clientFd << std::endl;
 }
@@ -108,6 +109,7 @@ void Server::removeClient(int fd, const std::string &reason) {
       removeInvitesForNick(nick);
     delete _clients[fd];
     _clients.erase(fd);
+    _display.removeClient();
   }
   removePollFd(fd);
   close(fd);
@@ -130,15 +132,17 @@ void Server::disconnectClientFromChannels(int fd, const std::string &reason) {
 
   Client *client = _clients[fd];
   std::vector<Channel *> channels = client->getJoinedChannels();
-  
-  std::string quitMsg = ":" + client->getNickname() + "!" + client->getUsername() + "@ircserv QUIT :" + reason + "\r\n";
+
+  std::string quitMsg = ":" + client->getNickname() + "!" +
+                        client->getUsername() + "@ircserv QUIT :" + reason +
+                        "\r\n";
 
   for (size_t i = 0; i < channels.size(); ++i) {
     Channel *ch = channels[i];
     if (ch) {
-        ch->broadcast(quitMsg, client);
-        ch->removeClient(client);
-        cleanupChannel(ch->getName());
+      ch->broadcast(quitMsg, client);
+      ch->removeClient(client);
+      cleanupChannel(ch->getName());
     }
   }
 }

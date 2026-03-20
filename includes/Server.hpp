@@ -27,6 +27,7 @@
 #include <unistd.h>
 #include <vector>
 
+#include "Display.hpp"
 #include "Logger.hpp"
 
 class Client;
@@ -47,9 +48,12 @@ class CommandHandler;
  */
 class Server {
 public:
-  Server(const std::string &port, const std::string &password);
+  // Server(const std::string &port, const std::string &password);
+  Server(const std::string &port, const std::string &password,
+         Display &display);
   ~Server();
 
+  static bool isShuttingDown();
   void run();
 
   /**
@@ -73,6 +77,7 @@ private:
   std::string _password;
   int _listenFd;
   static bool _signal; // Signal checker
+  Display &_display;
 
   std::vector<pollfd> _pollfds;
   std::map<int, Client *> _clients;
