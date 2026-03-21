@@ -29,7 +29,7 @@ void displayThreadFunc(Display &display) {
 
     // For now, print to console to verify it works.
     // Later, you can send this directly to a serial port (e.g., /dev/ttyACM0)
-    std::cout << "\r" << payload << std::flush;
+    std::cout << payload << std::flush;
 
     std::this_thread::sleep_for(std::chrono::seconds(1));
   }

@@ -1,7 +1,7 @@
 # CONFIG
 NAME      := ircserv
 CXX       := c++
-CXXFLAGS  := -Wall -Wextra -Werror -std=c++17 -Iincludes
+CXXFLAGS  := -Wall -Wextra -Werror -std=c++17 -Iincludes -pthread
 DEBUG_FLAGS := -g -O0
 
 SRC_DIR   := src
@@ -44,7 +44,10 @@ debug_fclean: clean
 	@echo "Removing executable..."
 	@rm -f $(NAME)_debug
 
-re: fclean all
+# re: fclean all
+re: 
+	@$(MAKE) fclean
+	@$(MAKE) all
 
 -include $(DEP_FILES)
 
